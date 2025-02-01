@@ -7,6 +7,11 @@
 pip install git+https://github.com/MRyutaro/elastic_notebook_slim.git
 ```
 
+2. カーネルのパスを調べる
+```
+jupyter kernelspec list
+```
+
 2. カーネルのデータを設定する
 ```
 setup.sh <path/to/jupyter_elastic_kernel> <path/to/kernels>
