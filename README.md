@@ -4,7 +4,7 @@
 
 1. ライブラリをインストールする
 ```
-pip install git+https://github.com/MRyutaro/elastic_notebook_slim.git
+pip install elastic-notebook-slim
 ```
 
 2. カーネルのパスを調べる
