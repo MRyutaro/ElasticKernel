@@ -1,4 +1,4 @@
-# jupyter_elastic_kernel
+# ElasticKernel
 
 ## 使い方
 
