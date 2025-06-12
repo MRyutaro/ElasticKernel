@@ -14,10 +14,10 @@ jupyter kernelspec list
 
 2. カーネルのデータを設定する
 ```
-setup.sh <path/to/jupyter_elastic_kernel> <path/to/kernels>
+setup.sh <path/to/ElasticKernel> <path/to/kernels>
 ```
 
 例）
 ```
-setup.sh /tmp/jupyter_elastic_kernel /usr/local/share/jupyter/kernels
+setup.sh /tmp/ElasticKernel /usr/local/share/jupyter/kernels
 ```
