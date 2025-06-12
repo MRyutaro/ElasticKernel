@@ -206,7 +206,16 @@ class ElasticKernel(IPythonKernel):
     def do_shutdown(self, restart):
         self.logger.debug("Shutting Down Kernel")
         try:
+            start_time = datetime.now()
+            self.logger.info(f"Saving checkpoint started at: {start_time}")
+
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
+
+            end_time = datetime.now()
+            saving_time = end_time - start_time
+            self.logger.info(f"Saving checkpoint finished at: {end_time}")
+            self.logger.info(f"Total saving time: {saving_time}")
+
             self.logger.info("Checkpoint successfully saved.")
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
