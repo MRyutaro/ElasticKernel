@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -11,7 +10,8 @@ from ipykernel.ipkernel import IPythonKernel
 class JSTFormatter(logging.Formatter):
     """日本時間（JST）用のログフォーマッター"""
 
-    converter = lambda *args: datetime.now(timezone(timedelta(hours=9)))  # UTC+9
+    def converter(self, *args):
+        return datetime.now(timezone(timedelta(hours=9)))  # UTC+9
 
     def formatTime(self, record, datefmt=None):
         dt = self.converter()
@@ -92,7 +92,6 @@ class ElasticKernel(IPythonKernel):
     def __setup_file_path(self):
         # ファイルのパスを設定
         # JPY_SESSION_NAME=/home/vscode/Untitled1.ipynbのような感じ
-        # TODO: self.user_nsの'__session__': '/home/vscode/Untitled1.ipynb'にもある
         jupyter_notebook_path = os.environ.get("JPY_SESSION_NAME")
         if jupyter_notebook_path is None:
             root_dir = os.environ.get("HOME")
