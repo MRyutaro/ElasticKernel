@@ -219,7 +219,7 @@ class ElasticKernel(IPythonKernel):
 
         return result
 
-    async def _do_shutdown_async(self, restart):
+    def do_shutdown(self, restart):
         self.logger.debug("Shutting Down Kernel")
         try:
             start_time = datetime.now(timezone(timedelta(hours=9)))
@@ -239,11 +239,7 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
-        return await super().do_shutdown(restart)
-
-    def do_shutdown(self, restart):
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(self._do_shutdown_async(restart))
+        return super().do_shutdown(restart)
 
 
 if __name__ == "__main__":
