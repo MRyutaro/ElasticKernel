@@ -224,8 +224,8 @@ class ElasticKernel(IPythonKernel):
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
-            import time
-            time.sleep(10)
+            # import time
+            # time.sleep(10)
 
             end_time = datetime.now(timezone(timedelta(hours=9)))
             saving_time = end_time - start_time
