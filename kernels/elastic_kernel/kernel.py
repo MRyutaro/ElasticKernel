@@ -78,12 +78,12 @@ class ElasticKernel(IPythonKernel):
         if os.path.exists(self.checkpoint_file_path):
             self.logger.info("Checkpoint file exists. Loading checkpoint.")
             try:
-                start_time = datetime.now()
+                start_time = datetime.now(timezone(timedelta(hours=9)))
                 self.logger.info(f"Loading checkpoint started at: {start_time}")
 
                 self.elastic_notebook.load_checkpoint(self.checkpoint_file_path)
 
-                end_time = datetime.now()
+                end_time = datetime.now(timezone(timedelta(hours=9)))
                 loading_time = end_time - start_time
                 self.logger.info(f"Loading checkpoint finished at: {end_time}")
                 self.logger.info(f"Total loading time: {loading_time}")
@@ -220,12 +220,12 @@ class ElasticKernel(IPythonKernel):
     def do_shutdown(self, restart):
         self.logger.debug("Shutting Down Kernel")
         try:
-            start_time = datetime.now()
+            start_time = datetime.now(timezone(timedelta(hours=9)))
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
 
-            end_time = datetime.now()
+            end_time = datetime.now(timezone(timedelta(hours=9)))
             saving_time = end_time - start_time
             self.logger.info(f"Saving checkpoint finished at: {end_time}")
             self.logger.info(f"Total saving time: {saving_time}")
