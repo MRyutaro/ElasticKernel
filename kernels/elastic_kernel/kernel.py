@@ -17,7 +17,7 @@ class JSTFormatter(logging.Formatter):
         dt = self.converter()
         if datefmt:
             return dt.strftime(datefmt)
-        return dt.isoformat()
+        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # マイクロ秒を3桁まで表示
 
 
 class ElasticKernel(IPythonKernel):
