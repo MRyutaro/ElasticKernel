@@ -45,8 +45,10 @@ class ElasticKernel(IPythonKernel):
         self.__setup_logger()
 
         # connection_fileからカーネルIDを取得
-        connection_file = self.session.config['IPKernelApp']['connection_file']
-        kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace('kernel-', '')
+        connection_file = self.session.config["IPKernelApp"]["connection_file"]
+        kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace(
+            "kernel-", ""
+        )
 
         self.logger.info("===============================================")
         self.logger.info(f"Initializing ElasticKernel ({kernel_id})")
