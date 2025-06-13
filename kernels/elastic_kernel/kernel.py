@@ -121,9 +121,12 @@ class ElasticKernel(IPythonKernel):
     def __setup_logger(self):
         # ロガーの設定
         self.logger = logging.getLogger("ElasticKernelLogger")
-        self.logger.setLevel(logging.DEBUG)  # ログレベルを設定
-        # formatter = logging.Formatter(
-        #     '[%(asctime)s ElasticKernelLogger %(levelname)s] %(message)s')
+
+        # 環境変数からログレベルを取得
+        log_level_str = os.environ.get("ELASTIC_KERNEL_LOG_LEVEL", "INFO").upper()
+        log_level = getattr(logging, log_level_str, logging.INFO)
+        self.logger.setLevel(log_level)
+
         formatter = JSTFormatter(
             "[%(asctime)s ElasticKernelLogger %(levelname)s] %(message)s",
             "%Y-%m-%d %H:%M:%S",
@@ -131,7 +134,7 @@ class ElasticKernel(IPythonKernel):
 
         # コンソールハンドラー
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(log_level)
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
 
@@ -141,7 +144,7 @@ class ElasticKernel(IPythonKernel):
             maxBytes=5 * 1024 * 1024,
             backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
         )
-        rotating_file_handler.setLevel(logging.DEBUG)
+        rotating_file_handler.setLevel(log_level)
         rotating_file_handler.setFormatter(formatter)
         self.logger.addHandler(rotating_file_handler)
 
