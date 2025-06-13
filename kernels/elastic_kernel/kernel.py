@@ -2,6 +2,7 @@ import logging
 import os
 import time
 import traceback
+import asyncio
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -218,7 +219,7 @@ class ElasticKernel(IPythonKernel):
 
         return result
 
-    def do_shutdown(self, restart):
+    async def _do_shutdown_async(self, restart):
         self.logger.debug("Shutting Down Kernel")
         try:
             start_time = datetime.now(timezone(timedelta(hours=9)))
@@ -227,7 +228,7 @@ class ElasticKernel(IPythonKernel):
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
             sleep_time = int(os.environ.get("ELASTIC_KERNEL_SHUTDOWN_SLEEP", "1"))
             self.logger.info(f"Sleeping for {sleep_time} seconds before shutdown...")
-            time.sleep(sleep_time)
+            await asyncio.sleep(sleep_time)
 
             end_time = datetime.now(timezone(timedelta(hours=9)))
             saving_time = end_time - start_time
@@ -238,7 +239,11 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
-        return super().do_shutdown(restart)
+        return await super().do_shutdown(restart)
+
+    def do_shutdown(self, restart):
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self._do_shutdown_async(restart))
 
 
 if __name__ == "__main__":
