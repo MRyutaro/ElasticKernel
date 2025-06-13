@@ -2,7 +2,6 @@ import logging
 import os
 import time
 import traceback
-import asyncio
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
