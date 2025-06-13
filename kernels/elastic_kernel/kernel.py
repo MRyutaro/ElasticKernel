@@ -44,11 +44,13 @@ class ElasticKernel(IPythonKernel):
         self.__setup_file_path()
         self.__setup_logger()
 
+        # connection_fileからカーネルIDを取得
+        connection_file = self.session.config['IPKernelApp']['connection_file']
+        kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace('kernel-', '')
+
         self.logger.info("===============================================")
-        self.logger.info(f"Initializing ElasticKernel ({self.session.session})")
-        self.logger.debug("Session attributes:")
-        for key, value in vars(self.session).items():
-            self.logger.debug(f"  - {key}: {value}")
+        self.logger.info(f"Initializing ElasticKernel ({kernel_id})")
+        self.logger.info(f"self.session: {self.session}")
         self.logger.info("===============================================")
 
         # コマンドライン引数を取得
