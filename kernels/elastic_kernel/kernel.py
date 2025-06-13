@@ -50,7 +50,9 @@ class ElasticKernel(IPythonKernel):
 
         self.logger.info("===============================================")
         self.logger.info(f"Initializing ElasticKernel ({kernel_id})")
-        self.logger.info(f"self.session: {self.session}")
+        self.logger.debug("Session attributes:")
+        for key, value in vars(self.session).items():
+            self.logger.debug(f"  - {key}: {value}")
         self.logger.info("===============================================")
 
         # コマンドライン引数を取得
