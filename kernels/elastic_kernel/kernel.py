@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -10,11 +11,12 @@ from ipykernel.ipkernel import IPythonKernel
 class JSTFormatter(logging.Formatter):
     """日本時間（JST）用のログフォーマッター"""
 
-    def converter(self, *args):
-        return datetime.now(timezone(timedelta(hours=9)))  # UTC+9
+    def converter(self, timestamp):
+        dt = datetime.fromtimestamp(timestamp)
+        return dt.astimezone(timezone(timedelta(hours=9)))  # UTC+9
 
     def formatTime(self, record, datefmt=None):
-        dt = self.converter()
+        dt = self.converter(record.created)
         if datefmt:
             return dt.strftime(datefmt)
         return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # マイクロ秒を3桁まで表示
@@ -84,6 +86,7 @@ class ElasticKernel(IPythonKernel):
                 self.logger.info("Checkpoint successfully loaded.")
             except Exception as e:
                 self.logger.error(f"Error loading checkpoint: {e}")
+                self.logger.error(f"Error details:\n{traceback.format_exc()}")
         else:
             self.logger.info(
                 "Checkpoint file does not exist. Skipping loading checkpoint."
@@ -129,7 +132,7 @@ class ElasticKernel(IPythonKernel):
 
         formatter = JSTFormatter(
             "[%(asctime)s ElasticKernelLogger %(levelname)s] %(message)s",
-            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S.%f",
         )
 
         # コンソールハンドラー
@@ -221,6 +224,7 @@ class ElasticKernel(IPythonKernel):
             self.logger.info("Checkpoint successfully saved.")
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
+            self.logger.error(f"Error details:\n{traceback.format_exc()}")
         return super().do_shutdown(restart)
 
 
