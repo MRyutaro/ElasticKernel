@@ -239,26 +239,44 @@ class ElasticKernel(IPythonKernel):
             start_time = datetime.now(timezone(timedelta(hours=9)))
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
+            # チェックポイントの保存
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
+
+            # シャットダウン前の待機時間
             sleep_time = int(os.environ.get("ELASTIC_KERNEL_SHUTDOWN_SLEEP", "1"))
             self.logger.info(f"Sleeping for {sleep_time} seconds before shutdown...")
-            time.sleep(sleep_time)
+
+            # ログハンドラーのフラッシュを確実に行う
+            for handler in self.logger.handlers[:]:
+                try:
+                    handler.flush()
+                except Exception as e:
+                    print(f"Error flushing handler: {e}")
+
+            # 待機時間を分割して実行し、途中でログをフラッシュ
+            for i in range(sleep_time):
+                time.sleep(1)
+                for handler in self.logger.handlers[:]:
+                    try:
+                        handler.flush()
+                    except Exception as e:
+                        print(f"Error flushing handler: {e}")
 
             end_time = datetime.now(timezone(timedelta(hours=9)))
             saving_time = end_time - start_time
             self.logger.info(f"Saving checkpoint finished at: {end_time}")
             self.logger.info(f"Total saving time: {saving_time}")
-
             self.logger.info("Checkpoint successfully saved.")
+
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
         finally:
-            # ログハンドラーを閉じる
+            # ログハンドラーのクリーンアップ
             for handler in self.logger.handlers[:]:
                 try:
-                    handler.flush()  # バッファをフラッシュ
-                    handler.close()  # ハンドラーを閉じる
+                    handler.flush()
+                    handler.close()
                     self.logger.removeHandler(handler)
                 except Exception as e:
                     print(f"Error closing handler: {e}")
@@ -266,7 +284,7 @@ class ElasticKernel(IPythonKernel):
         # 親クラスのシャットダウン処理を実行
         result = super().do_shutdown(restart)
 
-        # 最後にログを出力
+        # 最後のログ出力
         print("ElasticKernel shutdown completed.")
         return result
 
