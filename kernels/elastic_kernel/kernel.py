@@ -254,7 +254,22 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
-        return super().do_shutdown(restart)
+        finally:
+            # ログハンドラーを閉じる
+            for handler in self.logger.handlers[:]:
+                try:
+                    handler.flush()  # バッファをフラッシュ
+                    handler.close()  # ハンドラーを閉じる
+                    self.logger.removeHandler(handler)
+                except Exception as e:
+                    print(f"Error closing handler: {e}")
+
+        # 親クラスのシャットダウン処理を実行
+        result = super().do_shutdown(restart)
+        
+        # 最後にログを出力
+        print("ElasticKernel shutdown completed.")
+        return result
 
 
 if __name__ == "__main__":
