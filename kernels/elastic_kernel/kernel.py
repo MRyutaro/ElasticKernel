@@ -42,12 +42,14 @@ class ElasticKernel(IPythonKernel):
         self.logger: logging.Logger
         self.log_file_path: str
         self.checkpoint_file_path: str
+        self._shutdown_requested = False
 
         self.__setup_file_path()
         self.__setup_logger()
 
         # シャットダウン時の処理を登録
         atexit.register(self.__cleanup)
+        atexit.register(self.__emergency_checkpoint)
 
         # connection_fileからカーネルIDを取得
         connection_file = self.session.config["IPKernelApp"]["connection_file"]
@@ -233,8 +235,48 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             print(f"Error during cleanup: {e}")
 
+    def __emergency_checkpoint(self):
+        """緊急時のチェックポイント保存"""
+        if self._shutdown_requested:
+            return
+
+        self._shutdown_requested = True
+        self.logger.info("Running emergency checkpoint...")
+
+        try:
+            # チェックポイントの保存
+            start_time = datetime.now(timezone(timedelta(hours=9)))
+            self.logger.info(f"Emergency checkpoint started at: {start_time}")
+
+            self.elastic_notebook.checkpoint(self.checkpoint_file_path)
+
+            end_time = datetime.now(timezone(timedelta(hours=9)))
+            saving_time = end_time - start_time
+            self.logger.info(f"Emergency checkpoint finished at: {end_time}")
+            self.logger.info(f"Total saving time: {saving_time}")
+
+        except Exception as e:
+            self.logger.error(f"Error during emergency checkpoint: {e}")
+            self.logger.error(f"Error details:\n{traceback.format_exc()}")
+        finally:
+            # ログハンドラーのクリーンアップ
+            for handler in self.logger.handlers[:]:
+                try:
+                    handler.flush()
+                    handler.close()
+                    self.logger.removeHandler(handler)
+                except Exception as e:
+                    print(f"Error closing handler: {e}")
+
     def do_shutdown(self, restart):
+        """シャットダウン処理"""
+        if self._shutdown_requested:
+            self.logger.info("Shutdown already in progress")
+            return super().do_shutdown(restart)
+
+        self._shutdown_requested = True
         self.logger.debug("Shutting Down Kernel")
+
         try:
             start_time = datetime.now(timezone(timedelta(hours=9)))
             self.logger.info(f"Saving checkpoint started at: {start_time}")
@@ -255,6 +297,8 @@ class ElasticKernel(IPythonKernel):
 
             # 待機時間を分割して実行し、途中でログをフラッシュ
             for i in range(sleep_time):
+                if not self._shutdown_requested:  # 中断された場合は即座に終了
+                    break
                 time.sleep(1)
                 for handler in self.logger.handlers[:]:
                     try:
