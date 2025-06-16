@@ -1,9 +1,8 @@
+import atexit
 import logging
 import os
-import signal
 import time
 import traceback
-import atexit
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -266,7 +265,7 @@ class ElasticKernel(IPythonKernel):
 
         # 親クラスのシャットダウン処理を実行
         result = super().do_shutdown(restart)
-        
+
         # 最後にログを出力
         print("ElasticKernel shutdown completed.")
         return result
