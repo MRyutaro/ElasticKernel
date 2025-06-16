@@ -74,7 +74,7 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             self.logger.error(f"Error loading ElasticNotebook: {e}")
 
-        # チェックポイントをロードする
+        # チェックポイントファイルをロードする
         if os.path.exists(self.checkpoint_file_path):
             self.logger.info("Checkpoint file exists. Loading checkpoint.")
             try:
@@ -93,6 +93,7 @@ class ElasticKernel(IPythonKernel):
                 )
                 self.logger.debug(f"{self.shell.user_ns=}")
                 self.logger.info("Checkpoint successfully loaded.")
+
             except Exception as e:
                 self.logger.error(f"Error loading checkpoint: {e}")
                 self.logger.error(f"Error details:\n{traceback.format_exc()}")
@@ -231,6 +232,19 @@ class ElasticKernel(IPythonKernel):
             self.logger.info(f"Total saving time: {saving_time}")
 
             self.logger.info("Checkpoint successfully saved.")
+            self.logger.info(
+                f"マイグレートする変数の数：{len(self.elastic_notebook.vss_to_migrate)}"
+            )
+            self.logger.debug(
+                f"マイグレートする変数：{self.elastic_notebook.vss_to_migrate}"
+            )
+            self.logger.info(
+                f"再計算する変数の数：{len(self.elastic_notebook.vss_to_recompute)}"
+            )
+            self.logger.debug(
+                f"再計算する変数：{self.elastic_notebook.vss_to_recompute}"
+            )
+
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
