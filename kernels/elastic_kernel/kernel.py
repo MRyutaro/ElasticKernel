@@ -3,6 +3,7 @@ import os
 import signal
 import time
 import traceback
+import atexit
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -45,6 +46,9 @@ class ElasticKernel(IPythonKernel):
 
         self.__setup_file_path()
         self.__setup_logger()
+
+        # シャットダウン時の処理を登録
+        atexit.register(self.__cleanup)
 
         # connection_fileからカーネルIDを取得
         connection_file = self.session.config["IPKernelApp"]["connection_file"]
@@ -219,19 +223,20 @@ class ElasticKernel(IPythonKernel):
 
         return result
 
+    def __cleanup(self):
+        """シャットダウン時のクリーンアップ処理"""
+        try:
+            self.logger.info("Running cleanup on exit...")
+            # ログハンドラーを閉じる
+            for handler in self.logger.handlers[:]:
+                handler.close()
+                self.logger.removeHandler(handler)
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+
     def do_shutdown(self, restart):
         self.logger.debug("Shutting Down Kernel")
         try:
-            # シグナルハンドラを設定
-            def signal_handler(signum, frame):
-                self.logger.info(f"Received signal {signum}")
-                # シグナルを無視して、シャットダウン処理を完了させる
-                signal.signal(signum, signal.SIG_IGN)
-
-            # SIGTERMとSIGINTをハンドリング
-            signal.signal(signal.SIGTERM, signal_handler)
-            signal.signal(signal.SIGINT, signal_handler)
-
             start_time = datetime.now(timezone(timedelta(hours=9)))
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
@@ -249,14 +254,6 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
-        finally:
-            # シグナルハンドラを元に戻す
-            signal.signal(signal.SIGTERM, signal.SIG_DFL)
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
-            # ログハンドラーを閉じる
-            for handler in self.logger.handlers[:]:
-                handler.close()
-                self.logger.removeHandler(handler)
         return super().do_shutdown(restart)
 
 
