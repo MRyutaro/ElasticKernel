@@ -225,9 +225,6 @@ class ElasticKernel(IPythonKernel):
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
-            sleep_time = int(os.environ.get("ELASTIC_KERNEL_SHUTDOWN_SLEEP", "1"))
-            self.logger.info(f"Sleeping for {sleep_time} seconds before shutdown...")
-            time.sleep(sleep_time)
 
             end_time = datetime.now(timezone(timedelta(hours=9)))
             saving_time = end_time - start_time
