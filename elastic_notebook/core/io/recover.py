@@ -39,13 +39,10 @@ def resume(filename):
 
                 return graph, fingerprint_dict, udfs, recomputation_ces, overlapping_vss
 
-            except _pickle.UnpicklingError as e:
-                print(f"Warning: Checkpoint file is corrupted: {e}")
+            except _pickle.UnpicklingError:
                 return DependencyGraph(), {}, set(), {}, []
-            except EOFError as e:
-                print(f"Warning: Checkpoint file is incomplete: {e}")
+            except EOFError:
                 return DependencyGraph(), {}, set(), {}, []
 
-    except Exception as e:
-        print(f"Error loading checkpoint: {e}")
+    except Exception:
         return DependencyGraph(), {}, set(), {}, []

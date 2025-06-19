@@ -58,12 +58,5 @@ def profile_migration_speed(dirname: str, alpha=1) -> float:
     os.system("rm -rf {}".format(testing_dir))
 
     migration_speed_bps = total_bytes / (total_read_time + total_write_time * alpha)
-    print(
-        "migration speed (bps) (total_bytes / (total_read_time + total_write_time * alpha)):",
-        migration_speed_bps,
-    )
-    print("|- total bytes:", total_bytes)
-    print("|- total read time:", total_read_time)
-    print("|- total write time:", total_write_time)
-    print("|- alpha:", alpha)
+
     return migration_speed_bps

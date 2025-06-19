@@ -42,20 +42,15 @@ def checkpoint(
 
     # Retrieve active VSs from the graph. Active VSs are correspond to the latest instances/versions of each variable.
     active_vss = set()
-    print("---------------------------")
-    print("all variables:")
-    # print(graph.variable_snapshots)
     for vs_list in graph.variable_snapshots.values():
         if not vs_list[-1].deleted:
-            print(f"name: {vs_list[-1].name}")
             active_vss.add(vs_list[-1])
 
     # Profile the size of each variable defined in the current session.
     for active_vs in active_vss:
         # 変数がfingerprint_dictに存在するかチェック
         if active_vs.name not in fingerprint_dict:
-            print(f"Warning: Variable '{active_vs.name}' not found in fingerprint_dict")
-            continue
+            pass
 
         attr_str = getattr(shell.user_ns[active_vs.name], "__module__", None)
         # Object is unserializable
@@ -132,26 +127,11 @@ def checkpoint(
         write_log_location, notebook_name, optimizer_name
     )
     opt_end = time.time()
-    print("---------------------------")
-    print("variables to migrate:")
-    for vs in vss_to_migrate:
-        print(f"name: {vs.name}, size: {vs.size}")
 
     difference_start = time.time()
     vss_to_recompute = active_vss - vss_to_migrate
     difference_end = time.time()
 
-    print("---------------------------")
-    print("variables to recompute:")
-    for vs in vss_to_recompute:
-        print(f"name: {vs.name}, size: {vs.size}")
-    print([vs.name for vs in vss_to_recompute])
-
-    print("---------------------------")
-    print("cells to recompute:")
-    for ce in ces_to_recompute:
-        print(f"cell num: {ce.cell_num}, cell runtime: {ce.cell_runtime}")
-    print(sorted([ce.cell_num + 1 for ce in ces_to_recompute]))
 
     optimize_end = time.time()
     if write_log_location:

@@ -34,9 +34,6 @@ def restore_notebook(
     recompute_start = time.time()
     for ce in graph.cell_executions:
         if ce in ces_to_recompute:
-            # Rerun cell code; suppress stdout when rerunning.
-            print("Rerunning cell", ce.cell_num + 1)
-
             # 出力を完全に抑制するための設定
             ipython = get_ipython()
 
@@ -68,7 +65,6 @@ def restore_notebook(
 
         # Define output variables in the CE.
         for pair in variables[ce.cell_num]:
-            print("Declaring variable", pair[0].name)
             shell.user_ns[pair[0].name] = pair[1]
 
     recompute_end = time.time()

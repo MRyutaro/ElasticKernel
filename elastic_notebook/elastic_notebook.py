@@ -206,11 +206,9 @@ class ElasticNotebook:
             if float(migration_speed) > 0:
                 self.migration_speed_bps = float(migration_speed)
                 self.manual_migration_speed = True
-            else:
-                pass
-                # print("Migration speed is not positive.")
         except ValueError:
-            print("Migration speed is not a number.")
+            pass
+
         self.selector.migration_speed_bps = self.migration_speed_bps
 
     def set_optimizer(self, optimizer):
