@@ -132,7 +132,6 @@ def checkpoint(
     vss_to_recompute = active_vss - vss_to_migrate
     difference_end = time.time()
 
-
     optimize_end = time.time()
     if write_log_location:
         with open(

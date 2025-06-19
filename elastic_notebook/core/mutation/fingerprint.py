@@ -160,7 +160,7 @@ def compare_fingerprint(
                             changed = True
                         uncomparable = True
                         fingerprint_list[2] = UncomparableObj()
-        except Exception as e:
+        except Exception:
             # Variable is uncomparable
             if id_set.intersection(input_variables_id_graph_union):
                 changed = True
