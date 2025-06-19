@@ -1,0 +1,3 @@
+include README.md
+include elastic_notebook_slim/LICENSE
+recursive-include elastic_kernel *.py *.json

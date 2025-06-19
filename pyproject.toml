@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "elastic-kernel"
+version = "0.0.1"
+description = "Elastic kernel for Jupyter with automatic checkpoint and dependency tracking"
+authors = [
+    { name = "ryutarom", email = "m2002r1028@icloud.com" }
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.6"
+dependencies = [
+    "dill",
+    "ipykernel",
+    "ipython",
+    "lightgbm",
+    "matplotlib",
+    "networkx",
+    "numpy",
+    "pandas",
+    "Pympler",
+    "scipy",
+    "seaborn",
+    "torch",
+    "xxhash",
+    "jupyter_client",
+    "jupyter",
+]
+keywords = ["jupyter", "kernel", "elastic", "checkpoint", "dependency-tracking"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Framework :: Jupyter",
+]
+
+[project.urls]
+Homepage = "https://github.com/MRyutaro/ElasticKernel"
+Repository = "https://github.com/MRyutaro/ElasticKernel"
+Documentation = "https://github.com/MRyutaro/ElasticKernel"
+"Bug Tracker" = "https://github.com/MRyutaro/ElasticKernel/issues"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "bump2version",
+]
+
+[project.scripts]
+elastic-kernel = "elastic_kernel.command:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"elastic_kernel" = ["kernel.json", "kernel.py"]

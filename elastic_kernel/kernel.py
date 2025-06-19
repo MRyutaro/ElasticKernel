@@ -4,8 +4,9 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
-from elastic.elastic_notebook import ElasticNotebook
 from ipykernel.ipkernel import IPythonKernel
+
+from elastic_notebook.elastic_notebook import ElasticNotebook
 
 
 class JSTFormatter(logging.Formatter):

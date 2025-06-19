@@ -7,17 +7,32 @@
 pip install elastic-notebook-slim
 ```
 
-2. カーネルのパスを調べる
+2. カーネルをインストールする
 ```
-jupyter kernelspec list
-```
-
-2. カーネルのデータを設定する
-```
-setup.sh <path/to/ElasticKernel> <path/to/kernels>
+jupyter kernelspec install --user elastic_kernel
 ```
 
-例）
+
+## PyPi へのアップロード方法
+
+### 自動でアップロードする方法
+
 ```
-setup.sh /tmp/ElasticKernel /usr/local/share/jupyter/kernels
+uv pip install -e .  # 初回のみ実行する
+bump2version {hogehoge}  # コマンドは以下のいずれかから選択する
+git push --follow-tags  # コミットとタグの両方をプッシュする
+```
+
+| コマンド             | 説明                       | バージョン変更例 |
+| -------------------- | -------------------------- | ---------------- |
+| `bump2version patch` | パッチバージョンを上げる   | 0.0.1 → 0.0.2    |
+| `bump2version minor` | マイナーバージョンを上げる | 0.1.0 → 0.2.0    |
+| `bump2version major` | メジャーバージョンを上げる | 1.0.0 → 2.0.0    |
+
+### 手動でアップロードする方法
+
+```
+uv pip install twine build
+python -m build
+python -m twine upload dist/*
 ```
