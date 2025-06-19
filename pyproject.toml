@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "elastic-kernel"
-version = "0.0.1"
+version = "0.0.2"
 description = "Elastic kernel for Jupyter with automatic checkpoint and dependency tracking"
 authors = [
     { name = "ryutarom", email = "m2002r1028@icloud.com" }
