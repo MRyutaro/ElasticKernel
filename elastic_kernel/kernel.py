@@ -146,12 +146,6 @@ class ElasticKernel(IPythonKernel):
             "%Y-%m-%d %H:%M:%S.%f",
         )
 
-        # コンソールハンドラー
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(log_level)
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
-
         # ローテーティングファイルハンドラー
         rotating_file_handler = RotatingFileHandler(
             self.log_file_path,
