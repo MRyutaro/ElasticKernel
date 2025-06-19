@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 
 from ipykernel.ipkernel import IPythonKernel
 
-from elastic_notebook.elastic_notebook import ElasticNotebook
+from elastic_notebook import ElasticNotebook
 
 
 class JSTFormatter(logging.Formatter):
