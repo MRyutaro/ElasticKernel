@@ -75,6 +75,13 @@ class ElasticKernel(IPythonKernel):
         except Exception as e:
             self.logger.error(f"Error loading ElasticNotebook: {e}")
 
+        # ElasticNotebookのログファイルのパスを設定する
+        log_file_parent_dir = os.path.dirname(self.log_file_path)
+        log_file_name = os.path.splitext(os.path.basename(self.log_file_path))[0]
+        log_dir = os.path.join(log_file_parent_dir, log_file_name)
+        os.makedirs(log_dir, exist_ok=True)
+        self.elastic_notebook.set_write_log_location(log_dir)
+
         # チェックポイントファイルをロードする
         if os.path.exists(self.checkpoint_file_path):
             self.logger.info("Checkpoint file exists. Loading checkpoint.")
@@ -197,10 +204,12 @@ class ElasticKernel(IPythonKernel):
     def do_execute(
         self, code, silent, store_history=True, user_expressions=None, allow_stdin=False
     ):
+        self.logger.debug(f"Pre execution user_ns: {self.shell.user_ns}")
         self.logger.debug(f"Executing Code:\n{code}")
         result = super().do_execute(
             code, silent, store_history, user_expressions, allow_stdin
         )
+        self.logger.debug(f"Post execution user_ns: {self.shell.user_ns}")
 
         if not self.__skip_record(code):
             self.elastic_notebook.record_event(code)

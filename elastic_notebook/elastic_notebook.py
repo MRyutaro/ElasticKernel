@@ -122,11 +122,9 @@ class ElasticNotebook:
         try:
             cell_output = get_ipython().run_cell(cell)
             cell_output.raise_error()
-            # traceback_list = []
         except Exception:
             pass
-            # _, _, tb = sys.exc_info()
-            # traceback_list = traceback.extract_tb(tb).format()
+
         cell_runtime = time.time() - start_time
         post_execution = set(self.shell.user_ns.keys())
         infer_start = time.time()
@@ -294,7 +292,6 @@ class ElasticNotebook:
             self.write_log_location,
             self.notebook_name,
             self.optimizer_name,
-            self,  # 自身のインスタンスを渡す
         )
 
     def load_checkpoint(self, filename):
@@ -303,14 +300,25 @@ class ElasticNotebook:
             variables,
             vss_to_migrate,
             vss_to_recompute,
+            oes_to_recompute,
             self.udfs,
-        ) = resume(filename)
+        ) = resume(
+            filename, self.write_log_location, self.notebook_name, self.optimizer_name
+        )
+
+        with open(self.write_log_location + "/variables.txt", "w") as f:
+            f.write(f"{self.dependency_graph=}\n")
+            f.write(f"{variables=}\n")
+            f.write(f"{vss_to_migrate=}\n")
+            f.write(f"{vss_to_recompute=}\n")
+            f.write(f"{self.udfs=}\n")
 
         # Recompute missing VSs and redeclare variables into the kernel.
         restore_notebook(
             self.dependency_graph,
             self.shell,
             variables,
+            oes_to_recompute,
             self.write_log_location,
             self.notebook_name,
             self.optimizer_name,

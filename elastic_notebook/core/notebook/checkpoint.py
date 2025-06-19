@@ -22,7 +22,6 @@ def checkpoint(
     write_log_location=None,
     notebook_name=None,
     optimizer_name=None,
-    elastic_notebook=None,
 ):
     """
     Checkpoints the notebook. The optimizer selects the VSs to migrate and recompute and the OEs to recompute, then
@@ -36,7 +35,6 @@ def checkpoint(
         write_log_location (str): location to write component runtimes to. For experimentation only.
         notebook_name (str): notebook name. For experimentation only.
         optimizer_name (str): optimizer name. For experimentation only.
-        elastic_notebook (ElasticNotebook, optional): ElasticNotebook instance to update migration lists.
     """
     profile_start = time.time()
 
@@ -48,10 +46,6 @@ def checkpoint(
 
     # Profile the size of each variable defined in the current session.
     for active_vs in active_vss:
-        # 変数がfingerprint_dictに存在するかチェック
-        if active_vs.name not in fingerprint_dict:
-            pass
-
         attr_str = getattr(shell.user_ns[active_vs.name], "__module__", None)
         # Object is unserializable
         if isinstance(fingerprint_dict[active_vs.name][2], UnserializableObj):
@@ -70,17 +64,10 @@ def checkpoint(
     overlapping_vss = []
     for active_vs1 in active_vss:
         for active_vs2 in active_vss:
-            if active_vs1 != active_vs2:
-                # 両方の変数がfingerprint_dictに存在するかチェック
-                if (
-                    active_vs1.name not in fingerprint_dict
-                    or active_vs2.name not in fingerprint_dict
-                ):
-                    continue
-                if fingerprint_dict[active_vs1.name][1].intersection(
-                    fingerprint_dict[active_vs2.name][1]
-                ):
-                    overlapping_vss.append((active_vs1, active_vs2))
+            if active_vs1 != active_vs2 and fingerprint_dict[active_vs1.name][
+                1
+            ].intersection(fingerprint_dict[active_vs2.name][1]):
+                overlapping_vss.append((active_vs1, active_vs2))
 
     profile_end = time.time()
     if write_log_location:
@@ -127,10 +114,26 @@ def checkpoint(
         write_log_location, notebook_name, optimizer_name
     )
     opt_end = time.time()
+    with open(write_log_location + "/checkpoint.txt", "a") as f:
+        f.write("variables to migrate:\n")
+        for vs in vss_to_migrate:
+            f.write(f"{vs.name}, {vs.size}\n")
 
     difference_start = time.time()
     vss_to_recompute = active_vss - vss_to_migrate
     difference_end = time.time()
+
+    with open(write_log_location + "/checkpoint.txt", "a") as f:
+        f.write("variables to recompute:\n")
+        for vs in vss_to_recompute:
+            f.write(f"{vs.name}, {vs.size}\n")
+        f.write(f"{[vs.name for vs in vss_to_recompute]}\n")
+
+    with open(write_log_location + "/checkpoint.txt", "a") as f:
+        f.write("cells to recompute:\n")
+        for ce in ces_to_recompute:
+            f.write(f"{ce.cell_num}, {ce.cell_runtime}\n")
+        f.write(f"{sorted([ce.cell_num + 1 for ce in ces_to_recompute])}\n")
 
     optimize_end = time.time()
     if write_log_location:
@@ -162,10 +165,6 @@ def checkpoint(
                 + "\n"
             )
 
-    # 変数リストを更新
-    if elastic_notebook is not None:
-        elastic_notebook.update_migration_lists(vss_to_migrate, vss_to_recompute)
-
     # Store the notebook checkpoint to the specified location.
     migrate_start = time.time()
     migrate_success = True
@@ -179,6 +178,7 @@ def checkpoint(
         selector.recomputation_ces,
         selector.overlapping_vss,
         filename,
+        write_log_location,
     )
     migrate_end = time.time()
 

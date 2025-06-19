@@ -23,6 +23,7 @@ def migrate(
     recomputation_ces,
     overlapping_vss,
     filename: str,
+    write_log_location: str = None,
 ):
     """
     Writes the graph representation of the notebook, migrated variables, and instructions for recomputation as the
@@ -36,11 +37,20 @@ def migrate(
         ces_to_recompute (set): set of CEs to recompute post-migration.
         filename (str): the location to write the checkpoint to.
         udfs (set): set of user-declared functions.
+        write_log_location (str): the location to write the log to.
     """
     # Retrieve variables
     variables = defaultdict(list)
     for vs in vss_to_migrate:
         variables[vs.output_ce].append(vs)
+
+    with open(write_log_location + "/migrate.txt", "a") as f:
+        f.write(f"{vss_to_migrate=}\n")
+        f.write(f"{vss_to_recompute=}\n")
+        f.write(f"{ces_to_recompute=}\n")
+        f.write(f"{recomputation_ces=}\n")
+        f.write(f"{overlapping_vss=}\n")
+        f.write(f"{udfs=}\n")
 
     # construct serialization order list.
     temp_dict = {}
@@ -63,8 +73,6 @@ def migrate(
     for v in temp_dict.values():
         serialization_order.append(list(v))
 
-    # Construct checkpoint JSON.
-    # adapter = FilesystemAdapter()
     metadata = (
         CheckpointFile()
         .with_dependency_graph(graph)
@@ -81,6 +89,8 @@ def migrate(
         write_path = filename
     else:
         write_path = FILENAME
+    with open(write_log_location + "/migrate.txt", "a") as f:
+        f.write(f"{write_path=}\n")
 
     with open(Path(write_path), "wb") as output_file:
         dill.dump(metadata, output_file)
