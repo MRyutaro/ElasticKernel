@@ -4,12 +4,12 @@
 
 1. ライブラリをインストールする
 ```
-pip install elastic-notebook-slim
+uv pip install elastic-kernel
 ```
 
 2. カーネルをインストールする
 ```
-jupyter kernelspec install --user elastic_kernel
+elastic-kernel install
 ```
 
 
@@ -18,7 +18,7 @@ jupyter kernelspec install --user elastic_kernel
 ### 自動でアップロードする方法
 
 ```
-pip install bump-my-version  # 初回のみ実行する
+uv pip install bump-my-version  # 初回のみ実行する
 bump-my-version bump {hogehoge}  # コマンドは以下のいずれかから選択する
 git push --follow-tags  # コミットとタグの両方をプッシュする
 ```
