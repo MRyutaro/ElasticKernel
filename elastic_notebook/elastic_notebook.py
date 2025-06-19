@@ -69,9 +69,6 @@ class ElasticNotebook:
         # Dict for recording overhead of profiling operations.
         self.profile_dict = {"idgraph": 0, "representation": 0}
 
-        # デバッグフラグ
-        self.debug = False
-
         # マイグレーションと再計算の変数リスト
         self._vss_to_migrate = []
         self._vss_to_recompute = []
@@ -95,13 +92,7 @@ class ElasticNotebook:
         """文字列表現を定義"""
         return f"マイグレーション対象: {self.vss_to_migrate}\n再計算対象: {self.vss_to_recompute}"
 
-    def set_debug(self, debug):
-        self.debug = debug
-
     def record_event(self, cell):
-        if self.debug:
-            print("Recording event...")
-
         pre_execution = set(self.shell.user_ns.keys())
 
         # Create id trees for output variables
@@ -247,9 +238,6 @@ class ElasticNotebook:
 
     def checkpoint(self, filename):
         """チェックポイントを作成"""
-        if self.debug:
-            print("Checkpointing...")
-
         # Write overhead metrics to file (for experiments).
         if self.write_log_location:
             with open(
@@ -312,10 +300,6 @@ class ElasticNotebook:
         )
 
     def load_checkpoint(self, filename):
-        if self.debug:
-            print("Loading checkpoint...")
-
-        # start_time = time.time()
         (
             self.dependency_graph,
             variables,
@@ -333,4 +317,3 @@ class ElasticNotebook:
             self.notebook_name,
             self.optimizer_name,
         )
-        # print("Checkpoint load time:", time.time() - start_time)
