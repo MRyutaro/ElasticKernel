@@ -12,7 +12,6 @@ uv pip install elastic-kernel
 elastic-kernel install
 ```
 
-
 ## PyPi へのアップロード方法
 
 ### 自動でアップロードする方法
