@@ -50,11 +50,7 @@ def restore_notebook(
     if write_log_location:
         with open(
             write_log_location
-            + "/output_"
-            + notebook_name
-            + "_"
-            + optimizer_name
-            + ".txt",
+            + "/load_checkpoint.txt",
             "a",
         ) as f:
             f.write(
