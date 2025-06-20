@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import dill
+
 from elastic_notebook.core.io.filesystem_adapter import FilesystemAdapter
 from elastic_notebook.core.io.migrate import FILENAME
 
@@ -61,14 +62,10 @@ def resume(
 
     if write_log_location:
         with open(
-            write_log_location
-            + "/output_"
-            + notebook_name
-            + "_"
-            + optimizer_name
-            + ".txt",
+            write_log_location + "/load_checkpoint.txt",
             "a",
         ) as f:
+            f.write("=" * 100 + "\n")
             f.write("Reload stage took - " + repr(load_end - load_start) + " seconds\n")
 
     return (

@@ -70,14 +70,10 @@ def checkpoint(
                 overlapping_vss.append((active_vs1, active_vs2))
 
     profile_end = time.time()
+
     if write_log_location:
         with open(
-            write_log_location
-            + "/output_"
-            + notebook_name
-            + "_"
-            + optimizer_name
-            + ".txt",
+            write_log_location + "/checkpoint.txt",
             "a",
         ) as f:
             f.write("overlappings - " + repr(len(overlapping_vss)) + "\n")
@@ -114,7 +110,9 @@ def checkpoint(
         write_log_location, notebook_name, optimizer_name
     )
     opt_end = time.time()
+
     with open(write_log_location + "/checkpoint.txt", "a") as f:
+        f.write(f"notebook_name: {notebook_name}\n")
         f.write("variables to migrate:\n")
         for vs in vss_to_migrate:
             f.write(f"{vs.name}, {vs.size}\n")
@@ -138,12 +136,7 @@ def checkpoint(
     optimize_end = time.time()
     if write_log_location:
         with open(
-            write_log_location
-            + "/output_"
-            + notebook_name
-            + "_"
-            + optimizer_name
-            + ".txt",
+            write_log_location + "/checkpoint.txt",
             "a",
         ) as f:
             f.write(
@@ -184,12 +177,7 @@ def checkpoint(
 
     if write_log_location:
         with open(
-            write_log_location
-            + "/output_"
-            + notebook_name
-            + "_"
-            + optimizer_name
-            + ".txt",
+            write_log_location + "/checkpoint.txt",
             "a",
         ) as f:
             f.write(

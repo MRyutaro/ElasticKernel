@@ -226,8 +226,8 @@ class ElasticNotebook:
         elif optimizer == OptimizerType.RECOMPUTE_ALL.value:
             self.selector = RecomputeAllBaseline(self.migration_speed_bps)
 
-    def set_write_log_location(self, filename):
-        self.write_log_location = filename
+    def set_write_log_location(self, dirname):
+        self.write_log_location = dirname
 
     def set_notebook_name(self, name):
         self.notebook_name = name
@@ -237,14 +237,10 @@ class ElasticNotebook:
         # Write overhead metrics to file (for experiments).
         if self.write_log_location:
             with open(
-                self.write_log_location
-                + "/output_"
-                + self.notebook_name
-                + "_"
-                + self.optimizer_name
-                + ".txt",
+                self.write_log_location + "/checkpoint.txt",
                 "a",
             ) as f:
+                f.write("=" * 100 + "\n")
                 f.write(
                     "comparison overhead - "
                     + repr(
@@ -306,7 +302,7 @@ class ElasticNotebook:
             filename, self.write_log_location, self.notebook_name, self.optimizer_name
         )
 
-        with open(self.write_log_location + "/variables.txt", "w") as f:
+        with open(self.write_log_location + "/load_checkpoint.txt", "w") as f:
             f.write(f"{self.dependency_graph=}\n")
             f.write(f"{variables=}\n")
             f.write(f"{vss_to_migrate=}\n")

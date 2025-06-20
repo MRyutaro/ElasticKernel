@@ -76,11 +76,7 @@ class ElasticKernel(IPythonKernel):
             self.logger.error(f"Error loading ElasticNotebook: {e}")
 
         # ElasticNotebookのログファイルのパスを設定する
-        log_file_parent_dir = os.path.dirname(self.log_file_path)
-        log_file_name = os.path.splitext(os.path.basename(self.log_file_path))[0]
-        log_dir = os.path.join(log_file_parent_dir, log_file_name)
-        os.makedirs(log_dir, exist_ok=True)
-        self.elastic_notebook.set_write_log_location(log_dir)
+        self.elastic_notebook.set_write_log_location(self.log_file_dir)
 
         # チェックポイントファイルをロードする
         if os.path.exists(self.checkpoint_file_path):
@@ -132,12 +128,10 @@ class ElasticKernel(IPythonKernel):
         elastic_kernel_dir = os.path.join(root_dir, ".elastic_kernel")
         os.makedirs(elastic_kernel_dir, exist_ok=True)
 
-        self.log_file_path = os.path.join(
-            elastic_kernel_dir, jupyter_notebook_name + ".log"
-        )
-        self.checkpoint_file_path = os.path.join(
-            elastic_kernel_dir, jupyter_notebook_name + ".pickle"
-        )
+        self.log_file_dir = os.path.join(elastic_kernel_dir, jupyter_notebook_name)
+        os.makedirs(self.log_file_dir, exist_ok=True)
+        self.log_file_path = os.path.join(self.log_file_dir, "ElasticKernel.log")
+        self.checkpoint_file_path = os.path.join(self.log_file_dir, "checkpoint.pickle")
 
     def __setup_logger(self):
         # ロガーの設定

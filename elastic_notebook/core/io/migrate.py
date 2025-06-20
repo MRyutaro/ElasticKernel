@@ -45,6 +45,7 @@ def migrate(
         variables[vs.output_ce].append(vs)
 
     with open(write_log_location + "/migrate.txt", "a") as f:
+        f.write("=" * 100 + "\n")
         f.write(f"{vss_to_migrate=}\n")
         f.write(f"{vss_to_recompute=}\n")
         f.write(f"{ces_to_recompute=}\n")
