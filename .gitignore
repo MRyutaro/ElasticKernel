@@ -5,8 +5,8 @@
 .ipynb_checkpoints/
 *.ipynb
 
-# Gitバックアップ
-.git.backup
+# サンプル
+sample/
 
 # Pythonビルド/配布関連
 *.egg-info/

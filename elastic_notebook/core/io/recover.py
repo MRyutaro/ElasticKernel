@@ -50,9 +50,10 @@ def resume(
                 print("oops")
                 # unpickling failed. Rerun cells to retrieve variable(s).
                 for vs in vs_list:
-                    metadata.ces_to_recompute = metadata.ces_to_recompute.union(
-                        metadata.recomputation_ces(vs.output_ce)
-                    )
+                    if vs.output_ce in metadata.recomputation_ces:
+                        metadata.ces_to_recompute = metadata.ces_to_recompute.union(
+                            metadata.recomputation_ces[vs.output_ce]
+                        )
 
     if filename:
         metadata = adapter.read_all(Path(filename))
