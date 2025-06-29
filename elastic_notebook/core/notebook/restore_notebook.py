@@ -1,7 +1,6 @@
 import time
 
 from ipykernel.zmqshell import ZMQInteractiveShell
-from IPython import get_ipython
 from IPython.utils.capture import capture_output
 
 from elastic_notebook.core.graph.graph import DependencyGraph
@@ -13,8 +12,6 @@ def restore_notebook(
     variables: dict,
     ces_to_recompute: set,
     write_log_location=None,
-    notebook_name=None,
-    optimizer_name=None,
 ):
     """
     Restores the notebook. Declares variables back into the kernel and recomputes the CEs to restore non-migrated
@@ -25,8 +22,6 @@ def restore_notebook(
         variables (Dict): Mapping from OEs to lists of variables defined in those OEs.
         oes_to_recompute (set): OEs to recompute to restore non-migrated variables.
         write_log_location (str): location to write component runtimes to. For experimentation only.
-        notebook_name (str): notebook name. For experimentation only.
-        optimizer_name (str): optimizer name. For experimentation only.
     """
 
     # Recompute OEs following the order they were executed in.
@@ -37,7 +32,9 @@ def restore_notebook(
             cell_capture = capture_output(stdout=True, stderr=True, display=True)
             try:
                 with cell_capture:
-                    get_ipython().run_cell(ce.cell)
+                    # TODO: ここを変えるとどうなるのか試す
+                    # get_ipython().run_cell(ce.cell)
+                    shell.run_cell(ce.cell)
             except Exception as e:
                 raise e
 
@@ -52,9 +49,6 @@ def restore_notebook(
             write_log_location + "/load_checkpoint.txt",
             "a",
         ) as f:
-            f.write(
-                "Recompute stage took - "
-                + repr(recompute_end - recompute_start)
-                + " seconds"
-                + "\n"
-            )
+            f.write("=" * 100 + "\n")
+            f.write(f"Recompute Time: {recompute_end - recompute_start}\n")
+            f.write(f"{shell.user_ns=}\n")

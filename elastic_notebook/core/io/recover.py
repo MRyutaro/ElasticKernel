@@ -36,18 +36,14 @@ def resume(
 
     with open(Path(read_path), "rb") as output_file:
         metadata = dill.load(output_file)
-        print(metadata.get_serialization_order())
         for vs_list in metadata.get_serialization_order():
             try:
-                print("trying:", [vs.name for vs in vs_list])
                 obj_list = dill.load(output_file)
                 for i in range(len(vs_list)):
-                    print("me: ", vs_list[i].output_ce.cell_num)
                     variables[vs_list[i].output_ce.cell_num].append(
                         (vs_list[i], obj_list[i])
                     )
             except Exception:
-                print("oops")
                 # unpickling failed. Rerun cells to retrieve variable(s).
                 for vs in vs_list:
                     if vs.output_ce in metadata.recomputation_ces:
@@ -67,7 +63,9 @@ def resume(
             "a",
         ) as f:
             f.write("=" * 100 + "\n")
-            f.write("Reload stage took - " + repr(load_end - load_start) + " seconds\n")
+            f.write(f"load_time: {load_end - load_start}\n")
+            f.write(f"{metadata=}\n")
+            f.write(f"{variables=}\n")
 
     return (
         metadata.get_dependency_graph(),

@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 import traceback
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
@@ -195,25 +196,32 @@ class ElasticKernel(IPythonKernel):
 
         return False
 
-    def do_execute(
+    async def do_execute(
         self, code, silent, store_history=True, user_expressions=None, allow_stdin=False
     ):
         self.logger.debug(f"Pre execution user_ns: {self.shell.user_ns}")
         self.logger.debug(f"Executing Code:\n{code}")
-        result = super().do_execute(
+
+        pre_execution_user_ns = (
+            set(self.shell.user_ns.keys()) if not self.__skip_record(code) else None
+        )
+        start_time = time.time() if not self.__skip_record(code) else None
+
+        result = await super().do_execute(
             code, silent, store_history, user_expressions, allow_stdin
         )
         self.logger.debug(f"Post execution user_ns: {self.shell.user_ns}")
 
         if not self.__skip_record(code):
-            self.elastic_notebook.record_event(code)
+            cell_runtime = time.time() - start_time
+            self.elastic_notebook.record_event(
+                code, pre_execution_user_ns, start_time, cell_runtime
+            )
             self.logger.debug("Recording event")
         else:
             self.logger.debug("Skipping record event")
 
-        # TODO: ここで毎回呼ぶのは効率悪いのでは？
         self.__del_from_user_ns_hidden()
-
         return result
 
     def do_shutdown(self, restart):

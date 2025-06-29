@@ -134,6 +134,7 @@ def checkpoint(
         f.write(f"{sorted([ce.cell_num + 1 for ce in ces_to_recompute])}\n")
 
     optimize_end = time.time()
+
     if write_log_location:
         with open(
             write_log_location + "/checkpoint.txt",
@@ -186,4 +187,5 @@ def checkpoint(
                 + " seconds"
                 + "\n"
             )
-    return migrate_success
+
+    return migrate_success, vss_to_migrate, vss_to_recompute

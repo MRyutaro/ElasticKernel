@@ -4,7 +4,6 @@ import time
 import types
 from os.path import dirname
 
-from IPython import get_ipython
 from IPython.core.interactiveshell import InteractiveShell
 from pympler import asizeof
 
@@ -92,9 +91,7 @@ class ElasticNotebook:
         """文字列表現を定義"""
         return f"マイグレーション対象: {self.vss_to_migrate}\n再計算対象: {self.vss_to_recompute}"
 
-    def record_event(self, cell):
-        pre_execution = set(self.shell.user_ns.keys())
-
+    def record_event(self, cell, pre_execution_user_ns, start_time, cell_runtime):
         # Create id trees for output variables
         for var in self.dependency_graph.variable_snapshots.keys():
             if var not in self.fingerprint_dict and var in self.shell.user_ns:
@@ -117,21 +114,12 @@ class ElasticNotebook:
                     self.fingerprint_dict[var][1]
                 )
 
-        # Run the cell.
-        start_time = time.time()
-        try:
-            cell_output = get_ipython().run_cell(cell)
-            cell_output.raise_error()
-        except Exception:
-            pass
-
-        cell_runtime = time.time() - start_time
         post_execution = set(self.shell.user_ns.keys())
         infer_start = time.time()
 
         # Find created and deleted variables by computing difference between namespace pre and post execution.
         created_variables, deleted_variables = find_created_deleted_vars(
-            pre_execution, post_execution
+            pre_execution_user_ns, post_execution
         )
 
         # Remove stored ID graphs for deleted variables.
@@ -277,7 +265,7 @@ class ElasticNotebook:
             self.selector.migration_speed_bps = self.migration_speed_bps
 
         # Checkpoint the notebook.
-        return checkpoint(
+        migrate_success, vss_to_migrate, vss_to_recompute = checkpoint(
             self.dependency_graph,
             self.shell,
             self.fingerprint_dict,
@@ -289,6 +277,12 @@ class ElasticNotebook:
             self.notebook_name,
             self.optimizer_name,
         )
+
+        # マイグレーションが成功した場合のみ、マイグレーションと再計算の変数リストを更新
+        if migrate_success:
+            self.update_migration_lists(vss_to_migrate, vss_to_recompute)
+
+        return migrate_success
 
     def load_checkpoint(self, filename):
         (
@@ -302,7 +296,8 @@ class ElasticNotebook:
             filename, self.write_log_location, self.notebook_name, self.optimizer_name
         )
 
-        with open(self.write_log_location + "/load_checkpoint.txt", "w") as f:
+        with open(self.write_log_location + "/load_checkpoint.txt", "a") as f:
+            f.write("=" * 100 + "\n")
             f.write(f"{self.dependency_graph=}\n")
             f.write(f"{variables=}\n")
             f.write(f"{vss_to_migrate=}\n")
@@ -316,6 +311,4 @@ class ElasticNotebook:
             variables,
             oes_to_recompute,
             self.write_log_location,
-            self.notebook_name,
-            self.optimizer_name,
         )
