@@ -161,11 +161,6 @@ class ElasticKernel(IPythonKernel):
     def __del_from_user_ns_hidden(self):
         # %whoで表示されるようにするために復元した変数をself.shell.user_ns_hiddenから削除する
         self.logger.debug(f"Initial {self.shell.user_ns_hidden=}")
-        JPY_SESSION_NAME = os.environ.get("JPY_SESSION_NAME")
-        self.logger.debug(f"JPY_SESSION_NAME: {JPY_SESSION_NAME}")
-        self.logger.debug(
-            f"user_ns.__session__: {self.shell.user_ns.get('__session__')}"
-        )
 
         variable_snapshots = set(
             self.elastic_notebook.dependency_graph.variable_snapshots
@@ -199,6 +194,8 @@ class ElasticKernel(IPythonKernel):
     async def do_execute(
         self, code, silent, store_history=True, user_expressions=None, allow_stdin=False
     ):
+        self.__del_from_user_ns_hidden()
+
         self.logger.debug(f"Pre execution user_ns: {self.shell.user_ns}")
         self.logger.debug(f"Executing Code:\n{code}")
 
@@ -221,7 +218,6 @@ class ElasticKernel(IPythonKernel):
         else:
             self.logger.debug("Skipping record event")
 
-        self.__del_from_user_ns_hidden()
         return result
 
     def do_shutdown(self, restart):
