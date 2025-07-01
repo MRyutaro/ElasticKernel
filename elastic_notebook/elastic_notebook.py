@@ -1,7 +1,11 @@
 from __future__ import print_function
 
+import logging
+import os
 import time
 import types
+from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
 from os.path import dirname
 
 from IPython.core.interactiveshell import InteractiveShell
@@ -26,14 +30,22 @@ from elastic_notebook.core.notebook.restore_notebook import restore_notebook
 from elastic_notebook.core.notebook.update_graph import update_graph
 
 
-class ElasticNotebook:
-    """
-    Magics class for Elastic Notebook. Enable this in the notebook by running '%load_ext ElasticNotebook'.
-    Enables efficient checkpointing of intermediate notebook state via balancing migration and recomputation
-    costs.
-    """
+class JSTFormatter(logging.Formatter):
+    """日本時間（JST）用のログフォーマッター"""
 
-    def __init__(self, shell: InteractiveShell):
+    def converter(self, timestamp):
+        dt = datetime.fromtimestamp(timestamp)
+        return dt.astimezone(timezone(timedelta(hours=9)))  # UTC+9
+
+    def formatTime(self, record, datefmt=None):
+        dt = self.converter(record.created)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # マイクロ秒を3桁まで表示
+
+
+class ElasticNotebook:
+    def __init__(self, shell: InteractiveShell, log_file_dir: str):
         self.shell = shell
 
         # Initialize the dependency graph for capturing notebook state.
@@ -54,9 +66,6 @@ class ElasticNotebook:
         # time.
         self.manual_migration_speed = False
 
-        # Location to log runtimes to. For experiments only.
-        self.write_log_location = None
-
         # Strings for determining log filename. For experiments only.
         self.optimizer_name = ""
         self.notebook_name = ""
@@ -72,6 +81,11 @@ class ElasticNotebook:
         self._vss_to_migrate = []
         self._vss_to_recompute = []
 
+        # ロガーの設定
+        self.log_file_path = os.path.join(log_file_dir, "ElasticNotebook.log")
+        self.logger: logging.Logger
+        self.__setup_logger()
+
     @property
     def vss_to_migrate(self):
         """マイグレーション対象の変数リストを取得"""
@@ -81,6 +95,30 @@ class ElasticNotebook:
     def vss_to_recompute(self):
         """再計算対象の変数リストを取得"""
         return self._vss_to_recompute
+
+    def __setup_logger(self):
+        # ロガーの設定
+        self.logger = logging.getLogger("ElasticNotebookLogger")
+
+        # 環境変数からログレベルを取得
+        log_level_str = os.environ.get("ELASTIC_KERNEL_LOG_LEVEL", "INFO").upper()
+        log_level = getattr(logging, log_level_str, logging.INFO)
+        self.logger.setLevel(log_level)
+
+        formatter = JSTFormatter(
+            "[%(asctime)s %(name)s %(filename)s:%(lineno)d %(levelname)s] %(message)s",
+            "%Y-%m-%d %H:%M:%S.%f",
+        )
+
+        # ローテーティングファイルハンドラー
+        rotating_file_handler = RotatingFileHandler(
+            self.log_file_path,
+            maxBytes=5 * 1024 * 1024,
+            backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
+        )
+        rotating_file_handler.setLevel(log_level)
+        rotating_file_handler.setFormatter(formatter)
+        self.logger.addHandler(rotating_file_handler)
 
     def update_migration_lists(self, vss_to_migrate, vss_to_recompute):
         """マイグレーションと再計算の変数リストを更新"""
@@ -214,48 +252,34 @@ class ElasticNotebook:
         elif optimizer == OptimizerType.RECOMPUTE_ALL.value:
             self.selector = RecomputeAllBaseline(self.migration_speed_bps)
 
-    def set_write_log_location(self, dirname):
-        self.write_log_location = dirname
-
     def set_notebook_name(self, name):
         self.notebook_name = name
 
     def checkpoint(self, filename):
         """チェックポイントを作成"""
-        # Write overhead metrics to file (for experiments).
-        if self.write_log_location:
-            with open(
-                self.write_log_location + "/checkpoint.txt",
-                "a",
-            ) as f:
-                f.write("=" * 100 + "\n")
-                f.write(
-                    "comparison overhead - "
-                    + repr(
-                        asizeof.asizeof(self.dependency_graph)
-                        + asizeof.asizeof(self.fingerprint_dict)
-                    )
-                    + " bytes"
-                    + "\n"
-                )
-                f.write(
-                    "notebook overhead - "
-                    + repr(asizeof.asizeof(self.shell.user_ns))
-                    + " bytes"
-                    + "\n"
-                )
-                f.write(
-                    "Dependency graph storage overhead - "
-                    + repr(profile_graph_size(self.dependency_graph))
-                    + " bytes"
-                    + "\n"
-                )
-                f.write(
-                    "Cell monitoring overhead - "
-                    + repr(self.total_recordevent_time)
-                    + " seconds"
-                    + "\n"
-                )
+        self.logger.debug(
+            "comparison overhead - "
+            + repr(
+                asizeof.asizeof(self.dependency_graph)
+                + asizeof.asizeof(self.fingerprint_dict)
+            )
+            + " bytes"
+        )
+        self.logger.debug(
+            "notebook overhead - "
+            + repr(asizeof.asizeof(self.shell.user_ns))
+            + " bytes"
+        )
+        self.logger.debug(
+            "Dependency graph storage overhead - "
+            + repr(profile_graph_size(self.dependency_graph))
+            + " bytes"
+        )
+        self.logger.debug(
+            "Cell monitoring overhead - "
+            + repr(self.total_recordevent_time)
+            + " seconds"
+        )
 
         # Profile the migration speed to filename.
         if not self.manual_migration_speed:
@@ -273,7 +297,7 @@ class ElasticNotebook:
             self.udfs,
             filename,
             self.profile_dict,
-            self.write_log_location,
+            self.logger,
             self.notebook_name,
             self.optimizer_name,
         )
@@ -288,21 +312,9 @@ class ElasticNotebook:
         (
             self.dependency_graph,
             variables,
-            vss_to_migrate,
-            vss_to_recompute,
             oes_to_recompute,
             self.udfs,
-        ) = resume(
-            filename, self.write_log_location, self.notebook_name, self.optimizer_name
-        )
-
-        with open(self.write_log_location + "/load_checkpoint.txt", "a") as f:
-            f.write("=" * 100 + "\n")
-            f.write(f"{self.dependency_graph=}\n")
-            f.write(f"{variables=}\n")
-            f.write(f"{vss_to_migrate=}\n")
-            f.write(f"{vss_to_recompute=}\n")
-            f.write(f"{self.udfs=}\n")
+        ) = resume(self.logger, filename)
 
         # Recompute missing VSs and redeclare variables into the kernel.
         restore_notebook(
@@ -310,5 +322,5 @@ class ElasticNotebook:
             self.shell,
             variables,
             oes_to_recompute,
-            self.write_log_location,
+            self.logger,
         )

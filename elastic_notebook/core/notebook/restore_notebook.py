@@ -1,4 +1,5 @@
 import time
+from logging import Logger
 
 from ipykernel.zmqshell import ZMQInteractiveShell
 from IPython.utils.capture import capture_output
@@ -11,7 +12,7 @@ def restore_notebook(
     shell: ZMQInteractiveShell,
     variables: dict,
     ces_to_recompute: set,
-    write_log_location=None,
+    logger: Logger,
 ):
     """
     Restores the notebook. Declares variables back into the kernel and recomputes the CEs to restore non-migrated
@@ -21,7 +22,7 @@ def restore_notebook(
         shell (ZMQInteractiveShell): interactive Jupyter shell storing the state of the current session.
         variables (Dict): Mapping from OEs to lists of variables defined in those OEs.
         oes_to_recompute (set): OEs to recompute to restore non-migrated variables.
-        write_log_location (str): location to write component runtimes to. For experimentation only.
+        logger (logging.Logger): Logger to write to.
     """
 
     # Recompute OEs following the order they were executed in.
@@ -44,11 +45,5 @@ def restore_notebook(
 
     recompute_end = time.time()
 
-    if write_log_location:
-        with open(
-            write_log_location + "/load_checkpoint.txt",
-            "a",
-        ) as f:
-            f.write("=" * 100 + "\n")
-            f.write(f"Recompute Time: {recompute_end - recompute_start}\n")
-            f.write(f"{shell.user_ns=}\n")
+    logger.debug(f"Recompute Time: {recompute_end - recompute_start}")
+    logger.debug(f"{shell.user_ns=}")

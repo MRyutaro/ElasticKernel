@@ -71,13 +71,13 @@ class ElasticKernel(IPythonKernel):
 
         # ElasticNotebookをロードする
         try:
-            self.elastic_notebook = ElasticNotebook(self.shell)
+            self.elastic_notebook = ElasticNotebook(
+                shell=self.shell,
+                log_file_dir=self.log_file_dir,
+            )
             self.logger.info("ElasticNotebook successfully loaded.")
         except Exception as e:
             self.logger.error(f"Error loading ElasticNotebook: {e}")
-
-        # ElasticNotebookのログファイルのパスを設定する
-        self.elastic_notebook.set_write_log_location(self.log_file_dir)
 
         # チェックポイントファイルをロードする
         if os.path.exists(self.checkpoint_file_path):

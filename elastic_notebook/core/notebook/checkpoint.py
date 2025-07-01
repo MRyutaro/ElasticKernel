@@ -1,4 +1,5 @@
 import time
+from logging import Logger
 from typing import Dict
 
 import numpy as np
@@ -19,7 +20,7 @@ def checkpoint(
     udfs: set,
     filename: str,
     profile_dict,
-    write_log_location=None,
+    logger: Logger,
     notebook_name=None,
     optimizer_name=None,
 ):
@@ -32,7 +33,7 @@ def checkpoint(
         selector (Selector): optimizer for computing the checkpointing configuration.
         udfs (set): set of user-declared functions.
         filename (str): location to write the file to.
-        write_log_location (str): location to write component runtimes to. For experimentation only.
+        logger (logging.Logger): Logger to write to.
         notebook_name (str): notebook name. For experimentation only.
         optimizer_name (str): optimizer name. For experimentation only.
     """
@@ -73,30 +74,16 @@ def checkpoint(
 
     profile_end = time.time()
 
-    if write_log_location:
-        with open(
-            write_log_location + "/checkpoint.txt",
-            "a",
-        ) as f:
-            f.write("overlappings - " + repr(len(overlapping_vss)) + "\n")
-            f.write(
-                "Profile stage took - "
-                + repr(profile_start - profile_end)
-                + " seconds"
-                + "\n"
-            )
-            f.write(
-                "Idgraph stage took - "
-                + repr(profile_dict["idgraph"])
-                + " seconds"
-                + "\n"
-            )
-            f.write(
-                "Representation stage took - "
-                + repr(profile_dict["representation"])
-                + " seconds"
-                + "\n"
-            )
+    logger.debug("overlappings - " + repr(len(overlapping_vss)))
+    logger.debug(
+        "Profile stage took - " + repr(profile_start - profile_end) + " seconds"
+    )
+    logger.debug("Idgraph stage took - " + repr(profile_dict["idgraph"]) + " seconds")
+    logger.debug(
+        "Representation stage took - "
+        + repr(profile_dict["representation"])
+        + " seconds"
+    )
 
     optimize_start = time.time()
     # Initialize the optimizer.
@@ -109,57 +96,39 @@ def checkpoint(
     # Use the optimizer to compute the checkpointing configuration.
     opt_start = time.time()
     vss_to_migrate, ces_to_recompute = selector.select_vss(
-        write_log_location, notebook_name, optimizer_name
+        logger, notebook_name, optimizer_name
     )
     opt_end = time.time()
 
-    with open(write_log_location + "/checkpoint.txt", "a") as f:
-        f.write(f"notebook_name: {notebook_name}\n")
-        f.write("variables to migrate:\n")
-        for vs in vss_to_migrate:
-            f.write(f"{vs.name}, {vs.size}\n")
+    logger.debug(f"notebook_name: {notebook_name}")
+    logger.debug("variables to migrate:")
+    for vs in vss_to_migrate:
+        logger.debug(f"{vs.name}, {vs.size}")
 
     difference_start = time.time()
     vss_to_recompute = active_vss - vss_to_migrate
     difference_end = time.time()
 
-    with open(write_log_location + "/checkpoint.txt", "a") as f:
-        f.write("variables to recompute:\n")
-        for vs in vss_to_recompute:
-            f.write(f"{vs.name}, {vs.size}\n")
-        f.write(f"{[vs.name for vs in vss_to_recompute]}\n")
+    logger.debug("variables to recompute:")
+    for vs in vss_to_recompute:
+        logger.debug(f"{vs.name}, {vs.size}")
+    logger.debug(f"{[vs.name for vs in vss_to_recompute]}")
 
-    with open(write_log_location + "/checkpoint.txt", "a") as f:
-        f.write("cells to recompute:\n")
-        for ce in ces_to_recompute:
-            f.write(f"{ce.cell_num}, {ce.cell_runtime}\n")
-        f.write(f"{sorted([ce.cell_num + 1 for ce in ces_to_recompute])}\n")
+    logger.debug("cells to recompute:")
+    for ce in ces_to_recompute:
+        logger.debug(f"{ce.cell_num}, {ce.cell_runtime}")
+    logger.debug(f"{sorted([ce.cell_num + 1 for ce in ces_to_recompute])}")
 
     optimize_end = time.time()
 
-    if write_log_location:
-        with open(
-            write_log_location + "/checkpoint.txt",
-            "a",
-        ) as f:
-            f.write(
-                "Optimize stage took - "
-                + repr(optimize_end - optimize_start)
-                + " seconds"
-                + "\n"
-            )
-            f.write(
-                "  Add stage took - " + repr(add_end - add_start) + " seconds" + "\n"
-            )
-            f.write(
-                "  Opt stage took - " + repr(opt_end - opt_start) + " seconds" + "\n"
-            )
-            f.write(
-                "  Diff stage took - "
-                + repr(difference_end - difference_start)
-                + " seconds"
-                + "\n"
-            )
+    logger.debug(
+        "Optimize stage took - " + repr(optimize_end - optimize_start) + " seconds"
+    )
+    logger.debug("  Add stage took - " + repr(add_end - add_start) + " seconds")
+    logger.debug("  Opt stage took - " + repr(opt_end - opt_start) + " seconds")
+    logger.debug(
+        "  Diff stage took - " + repr(difference_end - difference_start) + " seconds"
+    )
 
     # Store the notebook checkpoint to the specified location.
     migrate_start = time.time()
@@ -173,21 +142,13 @@ def checkpoint(
         udfs,
         selector.recomputation_ces,
         selector.overlapping_vss,
+        logger,
         filename,
-        write_log_location,
     )
     migrate_end = time.time()
 
-    if write_log_location:
-        with open(
-            write_log_location + "/checkpoint.txt",
-            "a",
-        ) as f:
-            f.write(
-                "Migrate stage took - "
-                + repr(migrate_end - migrate_start)
-                + " seconds"
-                + "\n"
-            )
+    logger.debug(
+        "Migrate stage took - " + repr(migrate_end - migrate_start) + " seconds"
+    )
 
     return migrate_success, vss_to_migrate, vss_to_recompute

@@ -1,3 +1,5 @@
+from logging import Logger
+
 import networkx as nx
 import numpy as np
 from networkx.algorithms.flow import shortest_augmenting_path
@@ -69,7 +71,7 @@ class OptimizerExact(Selector):
                 self.recomputation_ces[ce] = recompute_ces
 
     def select_vss(
-        self, write_log_location=None, notebook_name=None, optimizer_name=None
+        self, logger: Logger, notebook_name=None, optimizer_name=None
     ) -> set:
         self.find_prerequisites()
 

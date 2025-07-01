@@ -1,4 +1,5 @@
 from collections import defaultdict
+from logging import Logger
 from pathlib import Path
 
 import dill
@@ -8,9 +9,6 @@ from ipykernel.zmqshell import ZMQInteractiveShell
 
 from elastic_notebook.core.common.checkpoint_file import CheckpointFile
 from elastic_notebook.core.graph.graph import DependencyGraph
-
-# Default checkpoint location if a file path isn't specified.
-FILENAME = "./notebook.pickle"
 
 
 def migrate(
@@ -22,8 +20,8 @@ def migrate(
     udfs,
     recomputation_ces,
     overlapping_vss,
-    filename: str,
-    write_log_location: str = None,
+    logger: Logger,
+    filename: str = "./notebook.pickle",
 ):
     """
     Writes the graph representation of the notebook, migrated variables, and instructions for recomputation as the
@@ -37,21 +35,20 @@ def migrate(
         ces_to_recompute (set): set of CEs to recompute post-migration.
         filename (str): the location to write the checkpoint to.
         udfs (set): set of user-declared functions.
-        write_log_location (str): the location to write the log to.
+        logger (logging.Logger): Logger to write to.
     """
     # Retrieve variables
     variables = defaultdict(list)
     for vs in vss_to_migrate:
         variables[vs.output_ce].append(vs)
 
-    with open(write_log_location + "/migrate.txt", "a") as f:
-        f.write("=" * 100 + "\n")
-        f.write(f"{vss_to_migrate=}\n")
-        f.write(f"{vss_to_recompute=}\n")
-        f.write(f"{ces_to_recompute=}\n")
-        f.write(f"{recomputation_ces=}\n")
-        f.write(f"{overlapping_vss=}\n")
-        f.write(f"{udfs=}\n")
+    logger.debug("=" * 100)
+    logger.debug(f"{vss_to_migrate=}")
+    logger.debug(f"{vss_to_recompute=}")
+    logger.debug(f"{ces_to_recompute=}")
+    logger.debug(f"{recomputation_ces=}")
+    logger.debug(f"{overlapping_vss=}")
+    logger.debug(f"{udfs=}")
 
     # construct serialization order list.
     temp_dict = {}
@@ -86,14 +83,9 @@ def migrate(
         .with_udfs(udfs)
     )
 
-    if filename:
-        write_path = filename
-    else:
-        write_path = FILENAME
-    with open(write_log_location + "/migrate.txt", "a") as f:
-        f.write(f"{write_path=}\n")
+    logger.debug(f"{filename=}")
 
-    with open(Path(write_path), "wb") as output_file:
+    with open(Path(filename), "wb") as output_file:
         dill.dump(metadata, output_file)
         for vs_list in serialization_order:
             obj_list = []
