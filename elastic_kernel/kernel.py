@@ -108,6 +108,9 @@ class ElasticKernel(IPythonKernel):
             )
 
     def __setup_file_path(self):
+        """
+        ログやチェックポイントのファイルパスを設定
+        """
         # ファイルのパスを設定
         # JPY_SESSION_NAME=/home/vscode/Untitled1.ipynbのような感じ
         jupyter_notebook_path = os.environ.get("JPY_SESSION_NAME")
@@ -135,6 +138,9 @@ class ElasticKernel(IPythonKernel):
         self.checkpoint_file_path = os.path.join(self.log_file_dir, "checkpoint.pickle")
 
     def __setup_logger(self):
+        """
+        ロガーの設定
+        """
         # ロガーの設定
         self.logger = logging.getLogger("ElasticKernelLogger")
 
@@ -159,7 +165,9 @@ class ElasticKernel(IPythonKernel):
         self.logger.addHandler(rotating_file_handler)
 
     def __del_from_user_ns_hidden(self):
-        # %whoで表示されるようにするために復元した変数をself.shell.user_ns_hiddenから削除する
+        """
+        %whoで表示されるようにするために復元した変数をself.shell.user_ns_hiddenから削除する
+        """
         self.logger.debug(f"Initial {self.shell.user_ns_hidden=}")
 
         variable_snapshots = set(
@@ -180,6 +188,9 @@ class ElasticKernel(IPythonKernel):
         self.logger.debug(f"Final {self.shell.user_ns_hidden=}")
 
     def __skip_record(self, code):
+        """
+        ElasitcNotebookのrecord_eventをスキップするかどうかを判断する
+        """
         skip_magic_commands = ["!", "%", "%%"]
         is_magic_command = any(
             code.strip().startswith(magic) for magic in skip_magic_commands
@@ -194,6 +205,9 @@ class ElasticKernel(IPythonKernel):
     async def do_execute(
         self, code, silent, store_history=True, user_expressions=None, allow_stdin=False
     ):
+        """
+        セル実行時に呼び出されるメソッド
+        """
         self.__del_from_user_ns_hidden()
 
         self.logger.debug(f"Pre execution user_ns: {self.shell.user_ns}")
@@ -221,7 +235,9 @@ class ElasticKernel(IPythonKernel):
         return result
 
     def do_shutdown(self, restart):
-        self.logger.debug("Shutting Down Kernel")
+        """
+        カーネル終了時に呼び出されるメソッド
+        """
         try:
             start_time = datetime.now(timezone(timedelta(hours=9)))
             self.logger.info(f"Saving checkpoint started at: {start_time}")
