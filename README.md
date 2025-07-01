@@ -1,6 +1,6 @@
 # ElasticKernel
 
-IPython Kernel for Jupyter with automatic checkpoint and dependency tracking.
+ElasticKernel: An IPython Kernel that automatically saves and restores Jupyter Notebook execution states.
 
 ## 使用方法
 

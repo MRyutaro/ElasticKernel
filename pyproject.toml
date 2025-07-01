@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "elastic-kernel"
 version = "0.0.13"
-description = "IPython Kernel for Jupyter with automatic checkpoint and dependency tracking."
+description = "An IPython Kernel that automatically saves and restores Jupyter Notebook execution states."
 authors = [
     { name = "ryutarom", email = "m2002r1028@icloud.com" }
 ]
