@@ -48,7 +48,9 @@ def checkpoint(
     for active_vs in active_vss:
         attr_str = getattr(shell.user_ns[active_vs.name], "__module__", None)
         # Object is unserializable
-        if isinstance(fingerprint_dict[active_vs.name][2], UnserializableObj):
+        if active_vs.name in fingerprint_dict and isinstance(
+            fingerprint_dict[active_vs.name][2], UnserializableObj
+        ):
             active_vs.size = np.inf
 
         # Blacklisted object
