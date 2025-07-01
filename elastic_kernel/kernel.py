@@ -144,7 +144,7 @@ class ElasticKernel(IPythonKernel):
         self.logger.setLevel(log_level)
 
         formatter = JSTFormatter(
-            "[%(asctime)s ElasticKernelLogger %(levelname)s] %(message)s",
+            "[%(asctime)s %(name)s %(filename)s:%(lineno)d %(levelname)s] %(message)s",
             "%Y-%m-%d %H:%M:%S.%f",
         )
 
