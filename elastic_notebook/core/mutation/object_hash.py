@@ -3,8 +3,8 @@ import io
 from inspect import isclass
 from types import FunctionType, ModuleType
 
-import networkx as nx
 import lightgbm
+import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy
