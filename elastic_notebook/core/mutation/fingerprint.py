@@ -88,7 +88,7 @@ def construct_fingerprint(obj, profile_dict):
     profile_dict["idgraph"] += end - start
 
     start = time.time()
-    object_representation = construct_object_hash(obj, deepcopy=True)
+    object_representation = construct_object_hash(obj)
     end = time.time()
     profile_dict["representation"] += end - start
 
@@ -138,7 +138,7 @@ def compare_fingerprint(
     if not changed:
         start = time.time()
         try:
-            new_repr = construct_object_hash(new_obj, deepcopy=False)
+            new_repr = construct_object_hash(new_obj)
 
             # Variable is uncomparable
             if isinstance(new_repr, UncomparableObj):
@@ -176,7 +176,7 @@ def compare_fingerprint(
         and not uncomparable
         and not isinstance(fingerprint_list[2], UncomparableObj)
     ):
-        fingerprint_list[2] = construct_object_hash(new_obj, deepcopy=True)
+        fingerprint_list[2] = construct_object_hash(new_obj)
     end = time.time()
     profile_dict["representation"] += end - start
 

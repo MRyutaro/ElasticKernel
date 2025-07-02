@@ -3,9 +3,7 @@ import io
 from inspect import isclass
 from types import FunctionType, ModuleType
 
-import dill
-
-# import polars as pl
+import networkx as nx
 import lightgbm
 import numpy as np
 import pandas as pd
@@ -193,12 +191,12 @@ def construct_object_hash(obj, deepcopy=False):
         h = xxhash.xxh3_128()
         h.update(obj)
         return h.intdigest()
-    except:
+    except Exception:
         try:
             if deepcopy:
                 return copy.deepcopy(obj)
             else:
                 return obj
-        except:
+        except Exception:
             # If object is not even deepcopy-able, mark it as unserializable and assume modified-on-write.
             return UnserializableObj()

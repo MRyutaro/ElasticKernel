@@ -175,6 +175,7 @@ class ElasticNotebook:
                 self.profile_dict,
                 input_variables_id_graph_union,
             )
+            self.logger.debug(f"{k=} {changed=} {overwritten=}")
             if changed:
                 modified_variables.add(k)
 
