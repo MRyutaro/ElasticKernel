@@ -68,9 +68,7 @@ class OptimizerExact(Selector):
                 self.dfs(ce, set(), recompute_ces)
                 self.recomputation_ces[ce] = recompute_ces
 
-    def select_vss(
-        self, notebook_name=None, optimizer_name=None
-    ) -> set:
+    def select_vss(self, notebook_name=None, optimizer_name=None) -> set:
         self.find_prerequisites()
 
         # Construct flow graph for computing mincut
