@@ -331,8 +331,6 @@ class ElasticNotebook:
             ces_to_recompute,
         )
 
-        self.logger.info("Loading checkpoint finished.")
-
         # 読み込んだメタデータから、マイグレートされた変数と再計算される変数を取得
         adapter = FilesystemAdapter()
         metadata = adapter.read_all(Path(filename))
@@ -350,3 +348,4 @@ class ElasticNotebook:
         # リストを更新して表示
         self.update_migration_lists(vss_to_migrate, vss_to_recompute)
         self.logger.info(self)
+        self.logger.info("Loading checkpoint finished.")
