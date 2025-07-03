@@ -7,6 +7,7 @@ import types
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from os.path import dirname
+from pathlib import Path
 
 from IPython.core.interactiveshell import InteractiveShell
 from pympler import asizeof
@@ -17,6 +18,7 @@ from elastic_notebook.algorithm.selector import OptimizerType
 from elastic_notebook.core.common.profile_graph_size import profile_graph_size
 from elastic_notebook.core.common.profile_migration_speed import profile_migration_speed
 from elastic_notebook.core.graph.graph import DependencyGraph
+from elastic_notebook.core.io.filesystem_adapter import FilesystemAdapter
 from elastic_notebook.core.io.recover import resume
 from elastic_notebook.core.mutation.fingerprint import (
     compare_fingerprint,
@@ -127,7 +129,7 @@ class ElasticNotebook:
 
     def __str__(self):
         """文字列表現を定義"""
-        return f"マイグレーション対象: {self.vss_to_migrate}\n再計算対象: {self.vss_to_recompute}"
+        return f"マイグレーション対象: {self.vss_to_migrate}，再計算対象: {self.vss_to_recompute}"
 
     def record_event(self, cell, pre_execution_user_ns, start_time, cell_runtime):
         # Create id trees for output variables
@@ -257,7 +259,7 @@ class ElasticNotebook:
         self.notebook_name = name
 
     def checkpoint(self, filename):
-        """チェックポイントを作成"""
+        self.logger.info("Saving checkpoint started.")
         self.logger.debug(
             "comparison overhead - "
             + repr(
@@ -305,14 +307,19 @@ class ElasticNotebook:
         # マイグレーションが成功した場合のみ、マイグレーションと再計算の変数リストを更新
         if migrate_success:
             self.update_migration_lists(vss_to_migrate, vss_to_recompute)
+            self.logger.info(self)
+
+        self.logger.info("Saving checkpoint finished.")
 
         return migrate_success
 
     def load_checkpoint(self, filename):
+        self.logger.info("Loading checkpoint started")
+
         (
             self.dependency_graph,
             variables,
-            oes_to_recompute,
+            ces_to_recompute,
             self.udfs,
         ) = resume(filename)
 
@@ -321,5 +328,25 @@ class ElasticNotebook:
             self.dependency_graph,
             self.shell,
             variables,
-            oes_to_recompute,
+            ces_to_recompute,
         )
+
+        self.logger.info("Loading checkpoint finished.")
+
+        # 読み込んだメタデータから、マイグレートされた変数と再計算される変数を取得
+        adapter = FilesystemAdapter()
+        metadata = adapter.read_all(Path(filename))
+
+        # マイグレートされた変数と再計算される変数のリストを取得
+        vss_to_migrate = (
+            metadata.get_vss_to_migrate() if metadata.get_vss_to_migrate() else set()
+        )
+        vss_to_recompute = (
+            metadata.get_vss_to_recompute()
+            if metadata.get_vss_to_recompute()
+            else set()
+        )
+
+        # リストを更新して表示
+        self.update_migration_lists(vss_to_migrate, vss_to_recompute)
+        self.logger.info(self)
