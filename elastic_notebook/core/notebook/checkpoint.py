@@ -1,5 +1,5 @@
+import logging
 import time
-from logging import Logger
 from typing import Dict
 
 import numpy as np
@@ -20,7 +20,6 @@ def checkpoint(
     udfs: set,
     filename: str,
     profile_dict,
-    logger: Logger,
     notebook_name=None,
     optimizer_name=None,
 ):
@@ -33,10 +32,10 @@ def checkpoint(
         selector (Selector): optimizer for computing the checkpointing configuration.
         udfs (set): set of user-declared functions.
         filename (str): location to write the file to.
-        logger (logging.Logger): Logger to write to.
         notebook_name (str): notebook name. For experimentation only.
         optimizer_name (str): optimizer name. For experimentation only.
     """
+    logger = logging.getLogger("ElasticNotebookLogger")
     profile_start = time.time()
 
     # Retrieve active VSs from the graph. Active VSs are correspond to the latest instances/versions of each variable.
@@ -96,7 +95,7 @@ def checkpoint(
     # Use the optimizer to compute the checkpointing configuration.
     opt_start = time.time()
     vss_to_migrate, ces_to_recompute = selector.select_vss(
-        logger, notebook_name, optimizer_name
+        notebook_name, optimizer_name
     )
     opt_end = time.time()
 
@@ -142,7 +141,6 @@ def checkpoint(
         udfs,
         selector.recomputation_ces,
         selector.overlapping_vss,
-        logger,
         filename,
     )
     migrate_end = time.time()

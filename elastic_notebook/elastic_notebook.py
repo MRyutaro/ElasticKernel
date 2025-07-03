@@ -298,7 +298,6 @@ class ElasticNotebook:
             self.udfs,
             filename,
             self.profile_dict,
-            self.logger,
             self.notebook_name,
             self.optimizer_name,
         )
@@ -315,7 +314,7 @@ class ElasticNotebook:
             variables,
             oes_to_recompute,
             self.udfs,
-        ) = resume(self.logger, filename)
+        ) = resume(filename)
 
         # Recompute missing VSs and redeclare variables into the kernel.
         restore_notebook(
@@ -323,5 +322,4 @@ class ElasticNotebook:
             self.shell,
             variables,
             oes_to_recompute,
-            self.logger,
         )

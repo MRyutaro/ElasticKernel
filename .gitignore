@@ -16,3 +16,6 @@ dist/
 
 # ElasticKernel固有
 .elastic_kernel/
+
+# claude
+.claude/

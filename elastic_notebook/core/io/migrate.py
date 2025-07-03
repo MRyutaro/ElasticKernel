@@ -1,5 +1,5 @@
+import logging
 from collections import defaultdict
-from logging import Logger
 from pathlib import Path
 
 import dill
@@ -20,7 +20,6 @@ def migrate(
     udfs,
     recomputation_ces,
     overlapping_vss,
-    logger: Logger,
     filename: str = "./notebook.pickle",
 ):
     """
@@ -35,8 +34,8 @@ def migrate(
         ces_to_recompute (set): set of CEs to recompute post-migration.
         filename (str): the location to write the checkpoint to.
         udfs (set): set of user-declared functions.
-        logger (logging.Logger): Logger to write to.
     """
+    logger = logging.getLogger("ElasticNotebookLogger")
     # Retrieve variables
     variables = defaultdict(list)
     for vs in vss_to_migrate:

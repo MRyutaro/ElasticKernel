@@ -1,6 +1,6 @@
+import logging
 import time
 from collections import defaultdict
-from logging import Logger
 from pathlib import Path
 
 import dill
@@ -8,15 +8,15 @@ import dill
 from elastic_notebook.core.io.filesystem_adapter import FilesystemAdapter
 
 
-def resume(logger: Logger, filename: str = "./notebook.pickle"):
+def resume(filename: str = "./notebook.pickle"):
     """
     Reads the file at `filename` and unpacks the graph representation of the notebook, migrated variables, and
     instructions for recomputation.
 
     Args:
         filename (str): Location of the checkpoint file.
-        logger (logging.Logger): Logger to write to.
     """
+    logger = logging.getLogger("ElasticNotebookLogger")
 
     # Reads from the default location if a file path isn't specified.
     adapter = FilesystemAdapter()
