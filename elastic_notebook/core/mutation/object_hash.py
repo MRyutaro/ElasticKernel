@@ -192,15 +192,15 @@ def construct_object_hash(obj, deepcopy=False):
     # Try to hash the object; if the object is unhashable, use deepcopy as fallback.
     try:
         h = xxhash.xxh3_128()
-        if hasattr(obj, "__bytes__"):
+        if hasattr(obj, '__bytes__'):
             # Use object's __bytes__ method if available
             obj_bytes = bytes(obj)
-        elif hasattr(obj, "tobytes"):
+        elif hasattr(obj, 'tobytes'):
             # For numpy-like objects with tobytes method
             obj_bytes = obj.tobytes()
         else:
             # Fallback to string representation
-            obj_bytes = str(obj).encode("utf-8")
+            obj_bytes = str(obj).encode('utf-8')
 
         h.update(obj_bytes)
         return h.intdigest()
