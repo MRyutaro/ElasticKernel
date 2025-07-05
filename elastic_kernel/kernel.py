@@ -123,8 +123,9 @@ class ElasticKernel(IPythonKernel):
                 # inode番号をハッシュ化（SHA256の最初の16文字を使用）
                 hash_value = hashlib.sha256(str(inode).encode()).hexdigest()[:16]
                 jupyter_notebook_name = hash_value
-            except Exception as e:
-                self.logger.error(f"Error getting inode: {e}")
+            except Exception:
+                # TODO: #15 セッションを閉じずにファイル名を変えたときの処理を考える
+                jupyter_notebook_name = "Untitled"
         else:
             raise ValueError("JPY_SESSION_NAME environment variable is not set.")
 
