@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import time
@@ -43,14 +44,14 @@ class ElasticKernel(IPythonKernel):
         self.log_file_path: str
         self.checkpoint_file_path: str
 
-        self.__setup_file_path()
-        self.__setup_logger()
-
         # connection_fileからカーネルIDを取得
         connection_file = self.session.config["IPKernelApp"]["connection_file"]
         kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace(
             "kernel-", ""
         )
+
+        self.__setup_file_path()
+        self.__setup_logger()
 
         self.logger.info("===============================================")
         self.logger.info(f"Initializing ElasticKernel ({kernel_id})")
@@ -62,11 +63,11 @@ class ElasticKernel(IPythonKernel):
         # コマンドライン引数を取得
         # ===========================================
         # !!!!!開発時のみ!!!!!本番環境ではコメントアウトすること!!!!!
-        # env = os.environ
-        # self.logger.debug(f"Environment: {env}")
+        env = os.environ
+        self.logger.debug(f"Environment: {env}")
         # self.logger.debug(f"Kernel Args: {sys.argv}")
-        # self.logger.debug(f"kwargs: {kwargs}")
-        # self.logger.debug(f"self.shell: {self.shell}")
+        self.logger.debug(f"kwargs: {kwargs}")
+        self.logger.debug(f"self.shell: {self.shell}")
         # ===========================================
 
         # ElasticNotebookをロードする
@@ -114,19 +115,18 @@ class ElasticKernel(IPythonKernel):
         # ファイルのパスを設定
         # JPY_SESSION_NAME=/home/vscode/Untitled1.ipynbのような感じ
         jupyter_notebook_path = os.environ.get("JPY_SESSION_NAME")
-        if jupyter_notebook_path is None:
-            root_dir = os.environ.get("HOME")
-            if root_dir is None:
-                raise ValueError(
-                    "JPY_SESSION_NAME or HOME environment variable is not set."
-                )
-            jupyter_notebook_name = "Untitled"
-        else:
+        if jupyter_notebook_path:
             root_dir = os.path.dirname(jupyter_notebook_path)
-            # ファイル名から拡張子を取り除く
-            jupyter_notebook_name = os.path.splitext(
-                os.path.basename(jupyter_notebook_path)
-            )[0]
+            # inode番号を使用してハッシュ値を生成
+            try:
+                inode = os.stat(jupyter_notebook_path).st_ino
+                # inode番号をハッシュ化（SHA256の最初の16文字を使用）
+                hash_value = hashlib.sha256(str(inode).encode()).hexdigest()[:16]
+                jupyter_notebook_name = hash_value
+            except Exception as e:
+                self.logger.error(f"Error getting inode: {e}")
+        else:
+            raise ValueError("JPY_SESSION_NAME environment variable is not set.")
 
         # フォルダの作成
         elastic_kernel_dir = os.path.join(root_dir, ".elastic_kernel")
