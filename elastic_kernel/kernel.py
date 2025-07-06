@@ -62,12 +62,12 @@ class ElasticKernel(IPythonKernel):
 
         # コマンドライン引数を取得
         # ===========================================
-        # !!!!!開発時のみ!!!!!本番環境ではコメントアウトすること!!!!!
-        env = os.environ
-        self.logger.debug(f"Environment: {env}")
+        # 開発時のみ．本番環境ではコメントアウトすること．
+        # env = os.environ
+        # self.logger.debug(f"Environment: {env}")
         # self.logger.debug(f"Kernel Args: {sys.argv}")
-        self.logger.debug(f"kwargs: {kwargs}")
-        self.logger.debug(f"self.shell: {self.shell}")
+        # self.logger.debug(f"kwargs: {kwargs}")
+        # self.logger.debug(f"self.shell: {self.shell}")
         # ===========================================
 
         # ElasticNotebookをロードする

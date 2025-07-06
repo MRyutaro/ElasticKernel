@@ -1,5 +1,10 @@
+import logging
 import sys
+import time
 import types
+
+# ElasticNotebook用のロガーを取得
+logger = logging.getLogger("ElasticNotebookLogger")
 
 
 def get_total_size(data):
@@ -26,7 +31,19 @@ def get_total_size(data):
                 return 0
         else:
             if obj_type in [list, tuple, set]:
-                for e in obj:
+                # 大きなコレクションの進捗をログ出力
+                collection_size = len(obj)
+                if collection_size > 10000:
+                    logger.debug(
+                        f"Processing {obj_type.__name__} with {collection_size:,} elements"
+                    )
+
+                for i, e in enumerate(obj):
+                    # 100万要素ごとに進捗を出力
+                    if collection_size > 1000000 and i % 1000000 == 0 and i > 0:
+                        logger.info(
+                            f"  Processed {i:,}/{collection_size:,} elements ({i/collection_size*100:.1f}%)"
+                        )
                     total_size = total_size + get_memory_size(e, False, visited)
             elif obj_type is dict:
                 for k, v in obj.items():
@@ -63,4 +80,18 @@ def profile_variable_size(x) -> int:
     Args:
         x: The variable to profile.
     """
-    return get_total_size(x)
+    start_time = time.time()
+    logger.info(f"Starting profile_variable_size for object type: {type(x).__name__}")
+
+    # 大きなリストの場合は警告
+    if isinstance(x, list) and len(x) > 1000000:
+        logger.warning(f"Profiling large list with {len(x):,} elements")
+
+    size = get_total_size(x)
+
+    elapsed_time = time.time() - start_time
+    logger.info(
+        f"profile_variable_size completed in {elapsed_time:.3f} seconds, size: {size:,} bytes"
+    )
+
+    return size
