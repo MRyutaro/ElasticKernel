@@ -4,10 +4,9 @@
 | 環境変数 | 説明 |
 | --- | --- |
 | `ELASTIC_KERNEL_LOG_LEVEL=DEBUG` | デバックモード．詳細なログが表示される． |
-| `JUPYTER_KERNEL_TIMEOUT=300` | カーネルタイムアウトを設定する． |
 
 ```
-ELASTIC_KERNEL_LOG_LEVEL=DEBUG JUPYTER_KERNEL_TIMEOUT=300 jupyter lab
+ELASTIC_KERNEL_LOG_LEVEL=DEBUG jupyter lab
 ```
 
 ## PyPi へのアップロード方法
