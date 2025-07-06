@@ -142,10 +142,27 @@ def compare_fingerprint(
 ):
     """
     Check whether an object has been changed by comparing it to its previous fingerprint.
+    Uses staged comparison: ID check -> structure check -> value check for performance.
     """
     changed = False
     overwritten = False
     uncomparable = False
+
+    # Stage 1: Quick identity check - if it's the same object in memory, skip expensive checks
+    current_obj_id = id(new_obj)
+    if (
+        hasattr(fingerprint_list[0], "obj_id")
+        and fingerprint_list[0].obj_id == current_obj_id
+    ):
+        # Same object ID - likely unchanged unless it's a mutable object that was modified in place
+        if type(new_obj) in [int, float, str, bool, type(None)]:
+            logger.debug(
+                f"compare_fingerprint: Early return for immutable object (obj_id: {current_obj_id})"
+            )
+            return (
+                False,
+                False,
+            )  # Immutable objects with same ID are definitely unchanged
 
     # Hack: check for pandas dataframes and series: if the flag has been flipped back on, the object has been changed.
     if isinstance(new_obj, pd.DataFrame):
@@ -158,7 +175,7 @@ def compare_fingerprint(
         if new_obj.__array__().flags.writeable:
             changed = True
 
-    # ID graph check: check whether the structure of the object has changed (i.e. its relation with other objects)
+    # Stage 2: ID graph check - check whether the structure of the object has changed (i.e. its relation with other objects)
     start = time.time()
 
     id_graph, id_set = construct_id_graph(new_obj)
@@ -176,11 +193,12 @@ def compare_fingerprint(
     end = time.time()
     profile_dict["idgraph"] += end - start
 
-    # Value check via object hash: check whether the object's value has changed
+    # Stage 3: Value check via object hash - only if structure hasn't changed
     if not changed:
         start = time.time()
         try:
-            new_repr = construct_object_hash(new_obj)
+            # Use timeout for large objects to avoid hanging
+            new_repr = construct_object_hash(new_obj, timeout_seconds=5.0)
 
             # Variable is uncomparable
             if isinstance(new_repr, UncomparableObj):

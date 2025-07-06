@@ -1,7 +1,9 @@
 from __future__ import print_function
 
+import gc
 import logging
 import os
+import sys
 import time
 import types
 from datetime import datetime, timedelta, timezone
@@ -58,6 +60,10 @@ class ElasticNotebook:
 
         # Dictionary of object fingerprints. For detecting modified references.
         self.fingerprint_dict = {}
+
+        # Cache for fingerprints by object ID to avoid recomputation
+        self.fingerprint_cache = {}
+        self.object_id_to_last_modified = {}
 
         # Set of user-declared functions.
         self.udfs = set()
@@ -139,8 +145,8 @@ class ElasticNotebook:
         for var in self.dependency_graph.variable_snapshots.keys():
             if var not in self.fingerprint_dict and var in self.shell.user_ns:
                 var_start = time.time()
-                self.fingerprint_dict[var] = construct_fingerprint(
-                    self.shell.user_ns[var], self.profile_dict
+                self.fingerprint_dict[var] = self._get_cached_fingerprint(
+                    self.shell.user_ns[var], var
                 )
                 var_time = time.time() - var_start
                 fingerprint_times.append((var, var_time))
@@ -238,8 +244,8 @@ class ElasticNotebook:
         new_var_times = []  # 新しい変数の処理時間を追跡
         for var in created_variables:
             var_start = time.time()
-            self.fingerprint_dict[var] = construct_fingerprint(
-                self.shell.user_ns[var], self.profile_dict
+            self.fingerprint_dict[var] = self._get_cached_fingerprint(
+                self.shell.user_ns[var], var
             )
             var_time = time.time() - var_start
             new_var_times.append((var, var_time))
@@ -289,6 +295,10 @@ class ElasticNotebook:
             self.logger.warning(
                 f"record_event took {total_record_time:.3f}s - performance issue detected"
             )
+
+        # Periodically clean up stale cache entries (every 10 cells)
+        if len(self.fingerprint_cache) > 100:
+            self._clear_stale_cache_entries()
 
     def set_migration_speed(self, migration_speed):
         try:
@@ -386,3 +396,65 @@ class ElasticNotebook:
         self.update_migration_lists(vss_to_migrate, vss_to_recompute)
         self.logger.info(self)
         self.logger.info("Loading checkpoint finished.")
+
+    def _get_cached_fingerprint(self, obj, var_name=None):
+        """
+        Get cached fingerprint if available and object hasn't changed, otherwise compute new one.
+        """
+        obj_id = id(obj)
+
+        # Check if we have a cached fingerprint for this object ID
+        if obj_id in self.fingerprint_cache:
+            # For primitive objects, we can safely return cached result
+            if type(obj) in [int, float, str, bool, type(None)]:
+                return self.fingerprint_cache[obj_id]
+
+            # For complex objects, we need to check if they've been modified
+            # For now, we'll implement a simple heuristic - cache hit only if object size is same
+            try:
+                current_size = sys.getsizeof(obj)
+                if obj_id in self.object_id_to_last_modified:
+                    cached_size = self.object_id_to_last_modified[obj_id]
+                    if current_size == cached_size:
+                        if var_name:
+                            self.logger.debug(
+                                f"Cache hit for variable '{var_name}' (obj_id: {obj_id})"
+                            )
+                        return self.fingerprint_cache[obj_id]
+            except Exception:
+                self.logger.warning(
+                    f"Failed to get size of object with obj_id: {obj_id}"
+                )
+
+        # Cache miss - compute new fingerprint
+        if var_name:
+            self.logger.debug(
+                f"Cache miss for variable '{var_name}' (obj_id: {obj_id})"
+            )
+
+        fingerprint = construct_fingerprint(obj, self.profile_dict)
+
+        # Cache the result
+        self.fingerprint_cache[obj_id] = fingerprint
+        try:
+            self.object_id_to_last_modified[obj_id] = sys.getsizeof(obj)
+        except Exception:
+            pass
+
+        return fingerprint
+
+    def _clear_stale_cache_entries(self):
+        """
+        Clear cache entries for objects that no longer exist.
+        This helps prevent memory leaks.
+        """
+        active_ids = {id(obj) for obj in gc.get_objects()}
+
+        stale_ids = set(self.fingerprint_cache.keys()) - active_ids
+        for stale_id in stale_ids:
+            del self.fingerprint_cache[stale_id]
+            if stale_id in self.object_id_to_last_modified:
+                del self.object_id_to_last_modified[stale_id]
+
+        if stale_ids:
+            self.logger.debug(f"Cleared {len(stale_ids)} stale cache entries")
