@@ -219,6 +219,7 @@ class ElasticKernel(IPythonKernel):
 
         if not self.__skip_record(code):
             cell_runtime = time.time() - start_time
+            self.logger.debug(f"Cell runtime: {cell_runtime}")
             self.elastic_notebook.record_event(
                 code, pre_execution_user_ns, start_time, cell_runtime
             )
