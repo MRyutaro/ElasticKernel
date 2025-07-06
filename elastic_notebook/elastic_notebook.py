@@ -135,6 +135,7 @@ class ElasticNotebook:
 
         # Create id trees for output variables
         fingerprint_start = time.time()
+        fingerprint_times = []  # 変数別の処理時間を追跡
         for var in self.dependency_graph.variable_snapshots.keys():
             if var not in self.fingerprint_dict and var in self.shell.user_ns:
                 var_start = time.time()
@@ -142,12 +143,21 @@ class ElasticNotebook:
                     self.shell.user_ns[var], self.profile_dict
                 )
                 var_time = time.time() - var_start
+                fingerprint_times.append((var, var_time))
                 if var_time > 0.1:  # 100ms以上かかった場合のみログ
                     self.logger.warning(
                         f"  construct_fingerprint for '{var}' took {var_time:.3f}s"
                     )
         fingerprint_time = time.time() - fingerprint_start
         self.logger.debug(f"Initial fingerprint creation took {fingerprint_time:.3f}s")
+
+        # トップ5の遅い変数をログ
+        if fingerprint_times:
+            slow_vars = sorted(fingerprint_times, key=lambda x: x[1], reverse=True)[:5]
+            if slow_vars[0][1] > 0.05:  # 50ms以上の場合のみ表示
+                self.logger.debug(
+                    f"Top slow variables in fingerprint creation: {slow_vars}"
+                )
 
         # Find input variables (variables potentially accessed) of the cell.
         input_vars_start = time.time()
@@ -225,12 +235,14 @@ class ElasticNotebook:
 
         # Create ID graphs for output variables
         create_fingerprint_start = time.time()
+        new_var_times = []  # 新しい変数の処理時間を追跡
         for var in created_variables:
             var_start = time.time()
             self.fingerprint_dict[var] = construct_fingerprint(
                 self.shell.user_ns[var], self.profile_dict
             )
             var_time = time.time() - var_start
+            new_var_times.append((var, var_time))
             if var_time > 0.1:  # 100ms以上かかった場合のみログ
                 self.logger.warning(
                     f"  construct_fingerprint for new var '{var}' took {var_time:.3f}s"
@@ -239,6 +251,12 @@ class ElasticNotebook:
         self.logger.debug(
             f"Create fingerprints for new variables took {create_fingerprint_time:.3f}s"
         )
+
+        # 新しい変数のトップ5をログ
+        if new_var_times:
+            slow_new_vars = sorted(new_var_times, key=lambda x: x[1], reverse=True)[:5]
+            if slow_new_vars[0][1] > 0.05:  # 50ms以上の場合のみ表示
+                self.logger.debug(f"Top slow new variables: {slow_new_vars}")
 
         # Record newly defined UDFs
         for udf in function_defs:

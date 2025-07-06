@@ -1,10 +1,19 @@
+import logging
 from inspect import isclass
 from types import ModuleType
 
 PRIMITIVES = {type(None), int, float, bool, str}
 ITERABLES = {tuple, set, list}
-OBJECT_FILTER_FUNC = lambda x: not x[0].startswith("_") and not is_primitive(type(x[1]))
-ITERABLE_FILTER_FUNC = lambda x: not is_primitive(x)
+
+logger = logging.getLogger("ElasticNotebookLogger")
+
+
+def OBJECT_FILTER_FUNC(x):
+    return not x[0].startswith("_") and not is_primitive(type(x[1]))
+
+
+def ITERABLE_FILTER_FUNC(x):
+    return not is_primitive(x)
 
 
 class IdGraphNode:
@@ -144,4 +153,16 @@ def construct_id_graph(obj):
     """
     visited = {}
     graph = construct_id_graph_node(obj, visited)
+
+    # グラフの統計情報をログ
+    num_objects = len(visited)
+    if num_objects > 1000:
+        logger.warning(
+            f"construct_id_graph: Large object graph with {num_objects} objects for {type(obj).__name__}"
+        )
+    else:
+        logger.debug(
+            f"construct_id_graph: Constructed graph with {num_objects} objects for {type(obj).__name__}"
+        )
+
     return graph, set(visited.keys())

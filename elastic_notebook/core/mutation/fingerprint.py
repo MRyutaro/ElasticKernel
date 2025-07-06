@@ -1,3 +1,5 @@
+import logging
+import sys
 import time
 from collections.abc import Iterable
 from types import FunctionType
@@ -22,6 +24,8 @@ from elastic_notebook.core.mutation.object_hash import (
     UnserializableObj,
     construct_object_hash,
 )
+
+logger = logging.getLogger("ElasticNotebookLogger")
 
 BASE_TYPES = [
     str,
@@ -82,15 +86,53 @@ def construct_fingerprint(obj, profile_dict):
     """
     Construct a fingerprint of the object (ID graph + hash).
     """
+    # オブジェクトの基本情報をログ
+    obj_type = type(obj).__name__
+    try:
+        obj_size = sys.getsizeof(obj)
+        size_str = f"{obj_size} bytes"
+    except Exception:
+        size_str = "unknown size"
+
+    logger.debug(f"construct_fingerprint: Starting for {obj_type} ({size_str})")
+
+    # ID graph construction
     start = time.time()
     id_graph, id_set = construct_id_graph(obj)
     end = time.time()
-    profile_dict["idgraph"] += end - start
+    idgraph_time = end - start
+    profile_dict["idgraph"] += idgraph_time
 
+    if idgraph_time > 0.1:
+        logger.warning(
+            f"construct_fingerprint: ID graph construction took {idgraph_time:.3f}s for {obj_type}"
+        )
+    else:
+        logger.debug(
+            f"construct_fingerprint: ID graph construction took {idgraph_time:.3f}s"
+        )
+
+    # Object hash construction
     start = time.time()
     object_representation = construct_object_hash(obj)
     end = time.time()
-    profile_dict["representation"] += end - start
+    hash_time = end - start
+    profile_dict["representation"] += hash_time
+
+    if hash_time > 0.1:
+        logger.warning(
+            f"construct_fingerprint: Object hash construction took {hash_time:.3f}s for {obj_type}"
+        )
+    else:
+        logger.debug(
+            f"construct_fingerprint: Object hash construction took {hash_time:.3f}s"
+        )
+
+    total_time = idgraph_time + hash_time
+    if total_time > 0.2:
+        logger.warning(
+            f"construct_fingerprint: Total time {total_time:.3f}s for {obj_type} ({size_str})"
+        )
 
     return [id_graph, id_set, object_representation]
 
