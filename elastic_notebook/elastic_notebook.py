@@ -308,7 +308,7 @@ class ElasticNotebook:
                 dirname(filename), alpha=self.alpha
             )
             self.selector.migration_speed_bps = self.migration_speed_bps
-            self.logger.info(f"Migration speed: {self.migration_speed_bps} bytes/s")
+        self.logger.info(f"Migration speed: {self.migration_speed_bps} bytes/s")
 
         # Checkpoint the notebook.
         migrate_success, vss_to_migrate, vss_to_recompute = checkpoint(
