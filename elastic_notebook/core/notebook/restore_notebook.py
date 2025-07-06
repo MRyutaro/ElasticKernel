@@ -45,4 +45,3 @@ def restore_notebook(
     recompute_end = time.time()
 
     logger.debug(f"Recompute Time: {recompute_end - recompute_start}")
-    logger.debug(f"{shell.user_ns=}")

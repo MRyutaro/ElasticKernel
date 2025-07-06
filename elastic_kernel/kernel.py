@@ -97,7 +97,6 @@ class ElasticKernel(IPythonKernel):
                 self.logger.debug(
                     f"{self.elastic_notebook.dependency_graph.variable_snapshots=}"
                 )
-                self.logger.debug(f"{self.shell.user_ns=}")
                 self.logger.info("Checkpoint successfully loaded.")
 
             except Exception as e:
@@ -169,8 +168,6 @@ class ElasticKernel(IPythonKernel):
         """
         %whoで表示されるようにするために復元した変数をself.shell.user_ns_hiddenから削除する
         """
-        self.logger.debug(f"Initial {self.shell.user_ns_hidden=}")
-
         variable_snapshots = set(
             self.elastic_notebook.dependency_graph.variable_snapshots
         )
@@ -185,8 +182,6 @@ class ElasticKernel(IPythonKernel):
                 f"Deleting {variable_name} from self.shell.user_ns_hidden"
             )
             del self.shell.user_ns_hidden[variable_name]
-
-        self.logger.debug(f"Final {self.shell.user_ns_hidden=}")
 
     def __skip_record(self, code):
         """
@@ -211,7 +206,6 @@ class ElasticKernel(IPythonKernel):
         """
         self.__del_from_user_ns_hidden()
 
-        self.logger.debug(f"Pre execution user_ns: {self.shell.user_ns}")
         self.logger.debug(f"Executing Code:\n{code}")
 
         pre_execution_user_ns = (
@@ -222,7 +216,6 @@ class ElasticKernel(IPythonKernel):
         result = await super().do_execute(
             code, silent, store_history, user_expressions, allow_stdin
         )
-        self.logger.debug(f"Post execution user_ns: {self.shell.user_ns}")
 
         if not self.__skip_record(code):
             cell_runtime = time.time() - start_time
