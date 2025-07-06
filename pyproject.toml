@@ -21,7 +21,6 @@ dependencies = [
     "networkx",
     "numpy",
     "pandas",
-    "Pympler",
     "scipy",
     "seaborn",
     "torch",

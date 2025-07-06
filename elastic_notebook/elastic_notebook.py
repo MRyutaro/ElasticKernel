@@ -10,12 +10,10 @@ from os.path import dirname
 from pathlib import Path
 
 from IPython.core.interactiveshell import InteractiveShell
-from pympler import asizeof
 
 from elastic_notebook.algorithm.baseline import MigrateAllBaseline, RecomputeAllBaseline
 from elastic_notebook.algorithm.optimizer_exact import OptimizerExact
 from elastic_notebook.algorithm.selector import OptimizerType
-from elastic_notebook.core.common.profile_graph_size import profile_graph_size
 from elastic_notebook.core.common.profile_migration_speed import profile_migration_speed
 from elastic_notebook.core.graph.graph import DependencyGraph
 from elastic_notebook.core.io.filesystem_adapter import FilesystemAdapter
@@ -260,29 +258,6 @@ class ElasticNotebook:
 
     def checkpoint(self, filename):
         self.logger.info("Saving checkpoint started.")
-        self.logger.debug(
-            "comparison overhead - "
-            + repr(
-                asizeof.asizeof(self.dependency_graph)
-                + asizeof.asizeof(self.fingerprint_dict)
-            )
-            + " bytes"
-        )
-        self.logger.debug(
-            "notebook overhead - "
-            + repr(asizeof.asizeof(self.shell.user_ns))
-            + " bytes"
-        )
-        self.logger.debug(
-            "Dependency graph storage overhead - "
-            + repr(profile_graph_size(self.dependency_graph))
-            + " bytes"
-        )
-        self.logger.debug(
-            "Cell monitoring overhead - "
-            + repr(self.total_recordevent_time)
-            + " seconds"
-        )
 
         # Profile the migration speed to filename.
         if not self.manual_migration_speed:
