@@ -143,7 +143,7 @@ class ElasticNotebook:
                 )
                 var_time = time.time() - var_start
                 if var_time > 0.1:  # 100ms以上かかった場合のみログ
-                    self.logger.info(
+                    self.logger.warning(
                         f"  construct_fingerprint for '{var}' took {var_time:.3f}s"
                     )
         fingerprint_time = time.time() - fingerprint_start
@@ -232,7 +232,7 @@ class ElasticNotebook:
             )
             var_time = time.time() - var_start
             if var_time > 0.1:  # 100ms以上かかった場合のみログ
-                self.logger.info(
+                self.logger.warning(
                     f"  construct_fingerprint for new var '{var}' took {var_time:.3f}s"
                 )
         create_fingerprint_time = time.time() - create_fingerprint_start
