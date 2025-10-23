@@ -1,37 +1,96 @@
+import re
 import json
 import subprocess
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 
+# ===================== 設定 =====================
 log_file_path = "./.workspace/.elastic_kernel/7902699be42c8a8e/ElasticKernel.log"
 JST = timezone(timedelta(hours=9))
 
+# JSTの基準時刻
 restart_start_time = datetime.now(JST).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+09:00"
 
-# ===================== Dockerイベント取得 =====================
+# ===================== 収集用（あとで要約を出す） =====================
 events_output = []
+all_lines_docker = []     # docker compose logs（JST化後）をフルで保持
+all_lines_file = []       # アプリログ（ファイル）をフルで保持
+all_lines_events = []     # docker compose events をフルで保持（JST化後）
+timeline = []             # (timestamp, message) を全部突っ込む
+event_times = {}          # {イベント名: timestamp} 後段の“時刻, イベント”用
 
+# イベント名の抽出規則（あなたの要件に合わせて）
+# なるべくログの文字列で正確に判定する
+PATTERNS = [
+    ("コンテナ停止命令(SIGTERM): kill", re.compile(r"\[.*?\]\s*kill\b.*?(?:'signal':\s*'15'|signal=15)?")),
+    ("jupyter停止命令", re.compile(r"received signal 15, stopping", re.IGNORECASE)),
+    ("jupyterカーネル停止命令", re.compile(r"Shutting down \d+ kernel")),
+    ("セッション状態保存開始", re.compile(r"Saving checkpoint started|Saving checkpoint started at", re.IGNORECASE)),
+    ("セッション状態保存完了", re.compile(r"Saving checkpoint finished(?: at)?:?", re.IGNORECASE)),
+    ("jupyterカーネル停止", re.compile(r"Kernel shutdown", re.IGNORECASE)),
+    ("コンテナ停止(Docker Engineレベル): stop", re.compile(r"\[.*?\]\s*stop\b")),
+    ("コンテナ停止(OSレベル): die", re.compile(r"\[.*?\]\s*die\b")),
+    ("コンテナ起動開始: start", re.compile(r"\[.*?\]\s*start\b")),
+    ("jupyter起動完了", re.compile(r"Jupyter Server .* is running at", re.IGNORECASE)),
+    ("カーネル起動開始", re.compile(r"Kernel started", re.IGNORECASE)),
+    ("セッション状態復元開始", re.compile(r"Loading checkpoint started(?: at)?:?", re.IGNORECASE)),
+    ("セッション状態復元完了", re.compile(r"Loading checkpoint finished(?: at)?:?", re.IGNORECASE)),
+    # カーネル接続は「最後の1件」をあとで選ぶので別処理
+]
 
+# ===================== ユーティリティ =====================
+def iso_jst(dt: datetime) -> str:
+    return dt.astimezone(JST).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+09:00"
+
+def parse_any_timestamp_to_jst(ts: str) -> str:
+    """ISO8601のZ/+09:00, 'YYYY-mm-dd HH:MM:SS.ssssss' のどれでも受け入れてJST ISOへ"""
+    ts = ts.strip()
+    # 1) すでに +09:00 などのISOの場合
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return iso_jst(dt)
+    except Exception:
+        pass
+    # 2) 角括弧付き [YYYY-mm-dd HH:MM:SS.ffffff ...] を想定
+    try:
+        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=JST)
+        return iso_jst(dt)
+    except Exception:
+        pass
+    return ""  # 取れなければ空文字
+
+def try_extract_ts_from_docker_line(line: str) -> str:
+    # 例: jupyter-1  | 2025-10-23T21:33:41.028+09:00 ...
+    m = re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+\d{2}:\d{2}", line)
+    return m.group(0) if m else ""
+
+def try_extract_ts_from_file_line(line: str) -> str:
+    # 例: [2025-10-23 21:33:38.593549 ElasticKernelLogger ...]
+    m = re.search(r"\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{6})\s", line)
+    if m:
+        return parse_any_timestamp_to_jst(m.group(1))
+    return ""
+
+def record_event_time(ev_name: str, ts: str):
+    # 最初に出た時刻を採用（“最後の Connecting to kernel”だけ後で上書き）
+    if ts and ts >= restart_start_time and ev_name not in event_times:
+        event_times[ev_name] = ts
+
+# ===================== イベント（compose events）取得 =====================
 def capture_events():
     proc = subprocess.Popen(
         ["docker", "compose", "events", "--json", "--since", restart_start_time],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
-    try:
-        for line in proc.stdout:
-            line = line.strip()
-            if line:
-                try:
-                    event = json.loads(line)
-                    events_output.append(event)
-                except json.JSONDecodeError:
-                    events_output.append({"raw": line})
-    except Exception as e:
-        print(f"[Event capture error] {e}")
-
+    for line in proc.stdout:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+            events_output.append(event)
+        except json.JSONDecodeError:
+            events_output.append({"raw": line})
 
 events_thread = threading.Thread(target=capture_events, daemon=True)
 events_thread.start()
@@ -41,157 +100,128 @@ subprocess.run(["docker", "compose", "stop"])
 print("=" * 50)
 print(restart_start_time)
 print("=" * 50)
-subprocess.run(
-    [
-        "docker",
-        "compose",
-        "-f",
-        "docker-compose.yml",
-        "-f",
-        "docker-compose.exp.yml",
-        "up",
-        "-d",
-    ]
-)
+subprocess.run([
+    "docker", "compose",
+    "-f", "docker-compose.yml",
+    "-f", "docker-compose.exp.yml",
+    "up", "-d",
+])
 
 input("セル1を実行できたらEnterキーを押してください: ")
 
-# ===================== Docker LOGS =====================
+# ===================== docker compose logs（フル出力） =====================
 raw_logs = subprocess.run(
     ["docker", "compose", "logs", "--timestamps"], capture_output=True, text=True
 ).stdout.splitlines()
 
-print("\n===================== docker compose logs =====================")
-for line in raw_logs:
-    parts = line.split()
-    if len(parts) >= 3:
-        ts_str = parts[2]
+# ===================== docker compose events =====================
+for ev in events_output:
+    if "time" in ev:  # JSON
+        ts_raw = ev["time"]
         try:
-            dt_utc = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-            dt_jst = dt_utc.astimezone(JST)
-            ts_jst = dt_jst.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+09:00"
-            if ts_jst >= restart_start_time:
-                line_jst = line.replace(ts_str, ts_jst, 1)
-                print(line_jst)
+            dt = datetime.fromisoformat(ts_raw)
+            ts = iso_jst(dt)
         except Exception:
-            print(line)
+            ts = ts_raw  # そのまま
+        service = ev.get("service", "unknown")
+        action = ev.get("action", "unknown")
+        msg = f"{ts} [{service}] {action}"
 
-# ===================== LOG FILE =====================
-print("\n===================== ElasticKernel.log =====================")
+        if ts and ts >= restart_start_time:
+            all_lines_events.append(msg)
+            timeline.append((ts, msg))
+
+            # kill/stop/die/start を拾う
+            for ev_name, pat in PATTERNS:
+                if pat.search(f"[{service}] {action}"):
+                    record_event_time(ev_name, ts)
+    else:
+        raw = ev.get("raw", "")
+        ts = try_extract_ts_from_docker_line(raw) or parse_any_timestamp_to_jst(raw)
+        if ts and ts >= restart_start_time:
+            all_lines_events.append(raw)
+            timeline.append((ts, raw))
+
+# ===================== docker compose logs =====================
+connecting_to_kernel_ts_list = []  # 最後の1件を採るために保存
+for line in raw_logs:
+    ts = try_extract_ts_from_docker_line(line)
+    if not ts:
+        # UTC(Z)のケースにも対応
+        m_utc = re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z", line)
+        if m_utc:
+            ts = parse_any_timestamp_to_jst(m_utc.group(0))
+    if ts and ts >= restart_start_time:
+        all_lines_docker.append(line)
+        timeline.append((ts, line))
+
+        # イベント名を判定
+        for ev_name, pat in PATTERNS:
+            if pat.search(line):
+                record_event_time(ev_name, ts)
+
+        # Connecting to kernel（最後のやつ）専用
+        if re.search(r"Connecting to kernel", line, re.IGNORECASE):
+            connecting_to_kernel_ts_list.append(ts)
+
+        # “Jupyter起動開始: 一番上の行” は、起動フェーズ最初のログを指す想定なら、
+        # Jupyter Server起動前の最初の info を拾うなど個別要件があるが、
+        # ここでは「compose logs における restart 後最初の行」を採用したい場合は以下を使用
+        # if "Jupyter 起動開始" not in event_times:
+        #     record_event_time("jupyter起動開始", ts)
+
+# ===================== ElasticKernel.log =====================
 try:
     with open(log_file_path, "r") as f:
         for line in f:
-            # フォーマット: [2025-10-23 13:59:51.845196 ...]
-            if line.startswith("[") and "]" in line:
-                ts_str = line[1:27]
-                try:
-                    dt_file = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S.%f")
-                    dt_file = dt_file.replace(tzinfo=JST)
-                    ts_jst = dt_file.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+09:00"
-                    if ts_jst >= restart_start_time:
-                        print(f"{ts_jst} {line.strip()}")
-                except Exception:
-                    print(line.strip())
+            ts = try_extract_ts_from_file_line(line)
+            if ts and ts >= restart_start_time:
+                all_lines_file.append(line.rstrip("\n"))
+                timeline.append((ts, line.rstrip("\n")))
+
+                # イベント名を判定（保存/復元など）
+                for ev_name, pat in PATTERNS:
+                    if pat.search(line):
+                        record_event_time(ev_name, ts)
 except FileNotFoundError:
     print(f"[WARN] ログファイルが見つかりません: {log_file_path}")
 
-# ===================== EVENTS =====================
-print("\n===================== docker compose events =====================")
-for event in events_output:
-    if "time" in event:
-        ts = event["time"]
-        try:
-            dt_event = datetime.fromisoformat(ts)
-            dt_event_jst = dt_event.astimezone(JST)
-            ts_jst = dt_event_jst.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+09:00"
-        except Exception:
-            ts_jst = ts
+# ===================== “最後の Connecting to kernel” を設定 =====================
+if connecting_to_kernel_ts_list:
+    last_ctk = max(connecting_to_kernel_ts_list)
+    event_times["カーネル起動"] = last_ctk  # 「カーネル起動: Connecting to kernelの一番最新のもの」
 
-        if ts_jst >= restart_start_time:
-            service = event.get("service", "unknown")
-            action = event.get("action", "unknown")
-            attributes = event.get("attributes", {})
-            print(f"{ts_jst} [{service}] {action} {attributes}")
-    else:
-        print(event.get("raw", ""))
+# ===================== まとめ（時刻, イベント） =====================
+# 表示順の定義（好きな順に並べてOK）
+summary_order = [
+    "コンテナ停止命令(SIGTERM): kill",
+    "jupyter停止命令",
+    "jupyterカーネル停止命令",
+    "セッション状態保存開始",
+    "セッション状態保存完了",
+    "jupyterカーネル停止",
+    "コンテナ停止(Docker Engineレベル): stop",
+    "コンテナ停止(OSレベル): die",
+    "コンテナ起動開始: start",
+    # "jupyter起動開始",  # 必要なら上でロジックを実装して有効化
+    "jupyter起動完了",
+    "カーネル起動開始",
+    "セッション状態復元開始",
+    "セッション状態復元完了",
+    "カーネル起動",
+]
 
+# 参考：全部の行を時刻順に俯瞰したい場合（必要なら）
+timeline.sort(key=lambda x: x[0])
+print("\n===================== FULL TIMELINE (時刻, 行) =====================")
+for ts, line in timeline:
+    print(f"{ts}, {line}")
 
-"""
-# イベント順序
-コンテナ停止命令(SIGTERM): kill
-jupyter停止命令: received signal 15, stopping
-jupyterカーネル停止命令: Shutting down N kernel
-セッション状態保存開始: Saving checkpoint started at
-セッション状態保存完了: Saving checkpoint finished at
-jupyterカーネル停止: Kernel shutdown
-コンテナ停止(Docker Engineレベル): stop
-コンテナ停止(OSレベル): die
-コンテナ起動開始: start
-jupyter起動開始: 一番上の行
-jupyter起動完了: Jupyter Server x.x.x is running at
-カーネル起動開始: Kernel started
-セッション状態復元開始: Loading checkpoint started at
-セッション状態復元完了: Loading checkpoint finished at
-カーネル起動: Connecting to kernelの一番最新のもの
-
-# 例
-
-
-# ログ
-===================== docker compose logs =====================
-jupyter-1  | 2025-10-23T21:33:38.591+09:00 [C 2025-10-23 12:33:38.590 ServerApp] received signal 15, stopping
-jupyter-1  | 2025-10-23T21:33:38.592+09:00 [I 2025-10-23 12:33:38.592 ServerApp] Shutting down 5 extensions
-jupyter-1  | 2025-10-23T21:33:38.592+09:00 [I 2025-10-23 12:33:38.592 ServerApp] Shutting down 1 kernel
-jupyter-1  | 2025-10-23T21:33:38.592+09:00 [I 2025-10-23 12:33:38.592 ServerApp] Kernel shutdown: 1b7e6bb7-b98f-4b65-827b-9bb282dd1839
-jupyter-1  | 2025-10-23T21:33:40.859+09:00 [I 2025-10-23 12:33:40.859 ServerApp] jupyter_lsp | extension was successfully linked.
-jupyter-1  | 2025-10-23T21:33:40.860+09:00 [I 2025-10-23 12:33:40.860 ServerApp] jupyter_server_terminals | extension was successfully linked.
-jupyter-1  | 2025-10-23T21:33:40.860+09:00 [W 2025-10-23 12:33:40.860 LabApp] 'token' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
-jupyter-1  | 2025-10-23T21:33:40.860+09:00 [W 2025-10-23 12:33:40.860 LabApp] 'password' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
-jupyter-1  | 2025-10-23T21:33:40.861+09:00 [W 2025-10-23 12:33:40.861 ServerApp] ServerApp.token config is deprecated in 2.0. Use IdentityProvider.token.
-jupyter-1  | 2025-10-23T21:33:40.861+09:00 [I 2025-10-23 12:33:40.861 ServerApp] jupyterlab | extension was successfully linked.
-jupyter-1  | 2025-10-23T21:33:40.863+09:00 [I 2025-10-23 12:33:40.863 ServerApp] notebook | extension was successfully linked.
-jupyter-1  | 2025-10-23T21:33:41.004+09:00 [I 2025-10-23 12:33:41.003 ServerApp] notebook_shim | extension was successfully linked.
-jupyter-1  | 2025-10-23T21:33:41.009+09:00 [W 2025-10-23 12:33:41.009 ServerApp] All authentication is disabled.  Anyone who can connect to this server will be able to run code.
-jupyter-1  | 2025-10-23T21:33:41.010+09:00 [I 2025-10-23 12:33:41.010 ServerApp] notebook_shim | extension was successfully loaded.
-jupyter-1  | 2025-10-23T21:33:41.011+09:00 [I 2025-10-23 12:33:41.010 ServerApp] jupyter_lsp | extension was successfully loaded.
-jupyter-1  | 2025-10-23T21:33:41.011+09:00 [I 2025-10-23 12:33:41.011 ServerApp] jupyter_server_terminals | extension was successfully loaded.
-jupyter-1  | 2025-10-23T21:33:41.012+09:00 [I 2025-10-23 12:33:41.012 LabApp] JupyterLab extension loaded from /usr/local/lib/python3.12/site-packages/jupyterlab
-jupyter-1  | 2025-10-23T21:33:41.012+09:00 [I 2025-10-23 12:33:41.012 LabApp] JupyterLab application directory is /usr/local/share/jupyter/lab
-jupyter-1  | 2025-10-23T21:33:41.012+09:00 [I 2025-10-23 12:33:41.012 LabApp] Extension Manager is 'pypi'.
-jupyter-1  | 2025-10-23T21:33:41.026+09:00 [I 2025-10-23 12:33:41.026 ServerApp] jupyterlab | extension was successfully loaded.
-jupyter-1  | 2025-10-23T21:33:41.027+09:00 [I 2025-10-23 12:33:41.027 ServerApp] notebook | extension was successfully loaded.
-jupyter-1  | 2025-10-23T21:33:41.028+09:00 [I 2025-10-23 12:33:41.027 ServerApp] Serving notebooks from local directory: /app
-jupyter-1  | 2025-10-23T21:33:41.028+09:00 [I 2025-10-23 12:33:41.027 ServerApp] Jupyter Server 2.17.0 is running at:
-jupyter-1  | 2025-10-23T21:33:41.028+09:00 [I 2025-10-23 12:33:41.028 ServerApp] http://d6a77f37d434:8888/lab
-jupyter-1  | 2025-10-23T21:33:41.028+09:00 [I 2025-10-23 12:33:41.028 ServerApp]     http://127.0.0.1:8888/lab
-jupyter-1  | 2025-10-23T21:33:41.028+09:00 [I 2025-10-23 12:33:41.028 ServerApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
-jupyter-1  | 2025-10-23T21:33:41.036+09:00 [I 2025-10-23 12:33:41.035 ServerApp] Skipped non-installed server(s): basedpyright, bash-language-server, dockerfile-language-server-nodejs, javascript-typescript-langserver, jedi-language-server, julia-language-server, pyrefly, pyright, python-language-server, python-lsp-server, r-languageserver, sql-language-server, texlab, typescript-language-server, unified-language-server, vscode-css-languageserver-bin, vscode-html-languageserver-bin, vscode-json-languageserver-bin, yaml-language-server
-jupyter-1  | 2025-10-23T21:33:44.163+09:00 [W 2025-10-23 12:33:44.162 LabApp] Could not determine jupyterlab build status without nodejs
-jupyter-1  | 2025-10-23T21:33:44.417+09:00 [W 2025-10-23 12:33:44.417 ServerApp] Notebook test_restart.ipynb is not trusted
-jupyter-1  | 2025-10-23T21:33:44.481+09:00 [I 2025-10-23 12:33:44.481 ServerApp] Kernel started: 726bc61b-b2d4-4640-8b9c-3a7da781d600
-jupyter-1  | 2025-10-23T21:33:45.626+09:00 [I 2025-10-23 12:33:45.626 ServerApp] Connecting to kernel 726bc61b-b2d4-4640-8b9c-3a7da781d600.
-jupyter-1  | 2025-10-23T21:33:45.627+09:00 [I 2025-10-23 12:33:45.627 ServerApp] Connecting to kernel 726bc61b-b2d4-4640-8b9c-3a7da781d600.
-jupyter-1  | 2025-10-23T21:33:45.628+09:00 [W 2025-10-23 12:33:45.628 ServerApp] The websocket_ping_timeout (90000) cannot be longer than the websocket_ping_interval (30000).
-jupyter-1  | 2025-10-23T21:33:45.628+09:00     Setting websocket_ping_timeout=30000
-jupyter-1  | 2025-10-23T21:33:45.642+09:00 [I 2025-10-23 12:33:45.641 ServerApp] Connecting to kernel 726bc61b-b2d4-4640-8b9c-3a7da781d600.
-jupyter-1  | 2025-10-23T21:33:45.669+09:00 [W 2025-10-23 12:33:45.669 ServerApp] Got events for closed stream <zmq.eventloop.zmqstream.ZMQStream object at 0xffff885d5a00>
-
-===================== ElasticKernel.log =====================
-2025-10-23T21:33:38.593+09:00 [2025-10-23 21:33:38.593549 ElasticKernelLogger kernel.py:240 INFO] Saving checkpoint started at: 2025-10-23T21:33:38.593527+0900
-2025-10-23T21:33:38.623+09:00 [2025-10-23 21:33:38.623327 ElasticKernelLogger kernel.py:264 ERROR] Error saving checkpoint: unsupported operand type(s) for -: 'str' and 'str'
-2025-10-23T21:33:38.623+09:00 [2025-10-23 21:33:38.623833 ElasticKernelLogger kernel.py:265 ERROR] Error details:
-2025-10-23T21:33:45.514+09:00 [2025-10-23 21:33:45.514644 ElasticKernelLogger kernel.py:56 INFO] ===============================================
-2025-10-23T21:33:45.514+09:00 [2025-10-23 21:33:45.514740 ElasticKernelLogger kernel.py:57 INFO] Initializing ElasticKernel (726bc61b-b2d4-4640-8b9c-3a7da781d600)
-2025-10-23T21:33:45.514+09:00 [2025-10-23 21:33:45.514819 ElasticKernelLogger kernel.py:61 INFO] ===============================================
-2025-10-23T21:33:45.515+09:00 [2025-10-23 21:33:45.515007 ElasticKernelLogger kernel.py:79 INFO] ElasticNotebook successfully loaded.
-2025-10-23T21:33:45.515+09:00 [2025-10-23 21:33:45.515098 ElasticKernelLogger kernel.py:85 INFO] Checkpoint file exists. Loading checkpoint.
-2025-10-23T21:33:45.515+09:00 [2025-10-23 21:33:45.515154 ElasticKernelLogger kernel.py:89 INFO] Loading checkpoint started at: 2025-10-23T21:33:45.515133+0900
-2025-10-23T21:33:45.516+09:00 [2025-10-23 21:33:45.516524 ElasticKernelLogger kernel.py:105 ERROR] Error loading checkpoint: unsupported operand type(s) for -: 'str' and 'str'
-2025-10-23T21:33:45.516+09:00 [2025-10-23 21:33:45.516685 ElasticKernelLogger kernel.py:106 ERROR] Error details:
-
-===================== docker compose events =====================
-2025-10-23T21:33:38.591+09:00 [jupyter] kill {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1', 'signal': '15'}
-2025-10-23T21:33:39.858+09:00 [jupyter] stop {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1'}
-2025-10-23T21:33:39.862+09:00 [jupyter] die {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'execDuration': '20', 'exitCode': '0', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1'}
-2025-10-23T21:33:40.060+09:00 [jupyter] start {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1'}
-"""
+print("\n===================== TIMELINE (時刻, イベント) =====================")
+# 取得できたものだけ時刻順に出す
+pairs = []
+for name, ts in event_times.items():
+    pairs.append((ts, name))
+pairs.sort(key=lambda x: x[0])
+for ts, name in pairs:
+    print(f"{ts}, {name}")
