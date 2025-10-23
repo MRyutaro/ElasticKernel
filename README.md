@@ -47,4 +47,4 @@ Available kernels:
 
 ## 開発者向け資料
 
-[ここ](/docs/developers.md)を参考にしてください．
+[ここ](/docs/DEVELOPERS.md)を参考にしてください．

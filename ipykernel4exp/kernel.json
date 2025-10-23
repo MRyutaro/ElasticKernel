@@ -1,0 +1,5 @@
+{
+  "display_name": "Python 3 (ipykernel4exp)",
+  "language": "python",
+  "argv": ["python", "-m", "ipykernel4exp.kernel", "-f", "{connection_file}"]
+}

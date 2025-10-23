@@ -11,7 +11,7 @@ authors = [
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 dependencies = [
     "dill",
     "ipykernel",
@@ -36,8 +36,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -64,9 +62,11 @@ dev = [
 
 [project.scripts]
 elastic-kernel = "elastic_kernel.command:main"
+ipykernel4exp = "ipykernel4exp.command:main"  # 実験用
 
 [tool.setuptools.packages.find]
 where = ["."]
 
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
+"ipykernel4exp" = ["kernel.json", "kernel.py"]  # 実験用

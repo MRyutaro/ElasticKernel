@@ -1,0 +1,4 @@
+services:
+  jupyter:
+    build:
+      dockerfile: Dockerfile.exp
