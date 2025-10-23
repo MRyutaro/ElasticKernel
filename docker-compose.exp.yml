@@ -1,4 +1,6 @@
 services:
   jupyter:
+    env_file:
+      - .env
     build:
       dockerfile: Dockerfile.exp

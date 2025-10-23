@@ -1,8 +1,5 @@
-import hashlib
 import logging
 import os
-import time
-import traceback
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -70,7 +67,7 @@ class ipykernel4exp(IPythonKernel):
         """
         カーネル終了時に呼び出されるメソッド
         """
-        start_time = datetime.now(timezone(timedelta(hours=9)))
+        start_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
         self.logger.info(f"ipykernel4exp shutdown started at: {start_time}")
         return super().do_shutdown(restart)
 
