@@ -95,15 +95,39 @@ for event in events_output:
 
 
 """
-コンテナ停止命令: EVENTSの[jupyter] kill
+# Jupyterとコンテナのイベント順序
+コンテナ停止命令(SIGTERM): EVENTSのkill
 jupyter停止命令: LOGSのreceived signal 15, stopping
-jupyterカーネル停止命令: LOGSの
+jupyterカーネル停止命令: LOGSのShutting down N kernel
+jupyterカーネル停止: LOGSのKernel shutdown
+コンテナ停止(Docker Engineレベル): EVENTSのstop
+コンテナ停止(OSレベル): EVENTSのdie
+コンテナ起動開始: EVENTSのstart
+jupyter起動開始: LOGSの一番上の行
+jupyter起動完了: LOGSのJupyter Server x.x.x is running at
+カーネル起動開始: LOGSのKernel started
+カーネル起動: LOGSのConnecting to kernelの一番最後のやつ？
 
+# 例
+2025-10-23T17:32:41.648+09:00 [jupyter] kill
+jupyter-1  | 2025-10-23T17:32:41.648+09:00 [C 2025-10-23 08:32:41.647 ServerApp] received signal 15, stopping
+jupyter-1  | 2025-10-23T17:32:41.649+09:00 [I 2025-10-23 08:32:41.649 ServerApp] Shutting down 1 kernel
+jupyter-1  | 2025-10-23T17:32:41.650+09:00 [I 2025-10-23 08:32:41.650 ServerApp] Kernel shutdown: fbee4911-8dee-4d48-a95e-925c0aa1bf53
+2025-10-23T17:32:42.422+09:00 [jupyter] stop
+2025-10-23T17:32:42.426+09:00 [jupyter] die 
+2025-10-23T17:32:42.603+09:00 [jupyter] start
+jupyter-1  | 2025-10-23T17:32:43.417+09:00 [I 2025-10-23 08:32:43.417 ServerApp] jupyter_lsp | extension was successfully linked.
+jupyter-1  | 2025-10-23T17:32:43.554+09:00 [I 2025-10-23 08:32:43.554 ServerApp] Jupyter Server 2.17.0 is running at:
+jupyter-1  | 2025-10-23T17:32:45.088+09:00 [I 2025-10-23 08:32:45.088 ServerApp] Kernel started: c86d02a8-5b7e-40cf-972c-31d3883c5e94
+jupyter-1  | 2025-10-23T17:32:46.071+09:00 [I 2025-10-23 08:32:46.070 ServerApp] Connecting to kernel c86d02a8-5b7e-40cf-972c-31d3883c5e94.
+
+# ログ
 ===================== LOGS (JST) =====================
 jupyter-1  | 2025-10-23T17:32:41.648+09:00 [C 2025-10-23 08:32:41.647 ServerApp] received signal 15, stopping
 jupyter-1  | 2025-10-23T17:32:41.649+09:00 [I 2025-10-23 08:32:41.649 ServerApp] Shutting down 5 extensions
 jupyter-1  | 2025-10-23T17:32:41.649+09:00 [I 2025-10-23 08:32:41.649 ServerApp] Shutting down 1 kernel
 jupyter-1  | 2025-10-23T17:32:41.650+09:00 [I 2025-10-23 08:32:41.650 ServerApp] Kernel shutdown: fbee4911-8dee-4d48-a95e-925c0aa1bf53
+
 jupyter-1  | 2025-10-23T17:32:43.417+09:00 [I 2025-10-23 08:32:43.417 ServerApp] jupyter_lsp | extension was successfully linked.
 jupyter-1  | 2025-10-23T17:32:43.418+09:00 [I 2025-10-23 08:32:43.418 ServerApp] jupyter_server_terminals | extension was successfully linked.
 jupyter-1  | 2025-10-23T17:32:43.419+09:00 [W 2025-10-23 08:32:43.419 LabApp] 'token' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
@@ -140,5 +164,4 @@ jupyter-1  | 2025-10-23T17:32:46.071+09:00 [I 2025-10-23 08:32:46.070 ServerApp]
 2025-10-23T17:32:42.422+09:00 [jupyter] stop {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1'}
 2025-10-23T17:32:42.426+09:00 [jupyter] die {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'execDuration': '104', 'exitCode': '0', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1'}
 2025-10-23T17:32:42.603+09:00 [jupyter] start {'desktop.docker.io/binds/0/Source': '/Users/matsumotoryutaro/programs/ElasticKernel/.workspace', 'desktop.docker.io/binds/0/SourceKind': 'hostFile', 'desktop.docker.io/binds/0/Target': '/app', 'desktop.docker.io/ports.scheme': 'v2', 'desktop.docker.io/ports/8888/tcp': ':8888', 'image': 'elastickernel-jupyter', 'name': 'elastickernel-jupyter-1'}
-
 """
