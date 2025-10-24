@@ -97,7 +97,12 @@ events_thread = threading.Thread(target=capture_events, daemon=True)
 events_thread.start()
 
 # ===================== コンテナ停止・起動 =====================
-subprocess.run(["docker", "compose", "stop"])
+subprocess.run([
+    "docker", "compose",
+    "-f", "docker-compose.yml",
+    "-f", "docker-compose.exp.yml",
+    "stop"
+])
 print("=" * 50)
 print(restart_start_time)
 print("=" * 50)
