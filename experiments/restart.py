@@ -31,6 +31,7 @@ PATTERNS = [
     ("コンテナ停止(Docker Engineレベル): stop", re.compile(r"\[.*?\]\s*stop\b")),
     ("コンテナ停止(OSレベル): die", re.compile(r"\[.*?\]\s*die\b")),
     ("コンテナ起動開始: start", re.compile(r"\[.*?\]\s*start\b")),
+    ("jupyter起動開始", re.compile(r"jupyter_lsp | extension was successfully linked.", re.IGNORECASE)),
     ("jupyter起動完了", re.compile(r"Jupyter Server .* is running at", re.IGNORECASE)),
     ("カーネル起動開始", re.compile(r"Kernel started", re.IGNORECASE)),
     ("セッション状態復元開始", re.compile(r"Loading checkpoint started(?: at)?:?", re.IGNORECASE)),
@@ -164,12 +165,6 @@ for line in raw_logs:
         if re.search(r"Connecting to kernel", line, re.IGNORECASE):
             connecting_to_kernel_ts_list.append(ts)
 
-        # “Jupyter起動開始: 一番上の行” は、起動フェーズ最初のログを指す想定なら、
-        # Jupyter Server起動前の最初の info を拾うなど個別要件があるが、
-        # ここでは「compose logs における restart 後最初の行」を採用したい場合は以下を使用
-        # if "Jupyter 起動開始" not in event_times:
-        #     record_event_time("jupyter起動開始", ts)
-
 # ===================== ElasticKernel.log =====================
 try:
     with open(log_file_path, "r") as f:
@@ -203,7 +198,7 @@ summary_order = [
     "コンテナ停止(Docker Engineレベル): stop",
     "コンテナ停止(OSレベル): die",
     "コンテナ起動開始: start",
-    # "jupyter起動開始",  # 必要なら上でロジックを実装して有効化
+    "jupyter起動開始",
     "jupyter起動完了",
     "カーネル起動開始",
     "セッション状態復元開始",
