@@ -11,7 +11,7 @@ authors = [
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 dependencies = [
     "dill",
     "ipykernel",
@@ -36,8 +36,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -70,3 +68,12 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
+
+[tool.uv.sources]
+# “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name     = "pytorch-cpu"
+url      = "https://download.pytorch.org/whl/cpu"
+explicit = true
