@@ -15,9 +15,11 @@ COPY elastic_kernel/ ./elastic_kernel/
 COPY elastic_notebook/ ./elastic_notebook/
 COPY ipykernel4exp/ ./ipykernel4exp/
 COPY pyproject.toml ./
+COPY uv.lock ./
 
 # 依存関係をインストール
-RUN uv pip install --system . && \
+RUN uv sync --frozen --no-editable && \
+    . .venv/bin/activate && \
     elastic-kernel install && \
     ipykernel4exp install
 
