@@ -19,10 +19,12 @@ COPY uv.lock ./
 
 # 依存関係をインストール
 RUN uv sync --frozen --no-editable && \
-    . .venv/bin/activate && \
-    elastic-kernel install && \
-    ipykernel4exp install
+    uv run elastic-kernel install && \
+    uv run ipykernel4exp install
 
 WORKDIR /app
+
+# パスを設定
+ENV PATH="/tmp/.venv/bin:$PATH"
 
 CMD ["jupyter", "lab", "--allow-root", "--ip=0.0.0.0"]
