@@ -14,11 +14,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY elastic_kernel/ ./elastic_kernel/
 COPY elastic_notebook/ ./elastic_notebook/
 COPY pyproject.toml ./
+COPY uv.lock ./
 
 # 依存関係をインストール
-RUN uv pip install --system . && \
-    elastic-kernel install
+RUN uv sync --frozen --no-editable && \
+    uv run elastic-kernel install
 
 WORKDIR /app
+
+# パスを設定
+ENV PATH="/tmp/.venv/bin:$PATH"
 
 CMD ["jupyter", "lab", "--allow-root", "--ip=0.0.0.0"]
