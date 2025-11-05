@@ -84,15 +84,17 @@ class ElasticKernel(IPythonKernel):
         if os.path.exists(self.checkpoint_file_path):
             self.logger.info("Checkpoint file exists. Loading checkpoint.")
             try:
-                start_time = datetime.now(timezone(timedelta(hours=9)))
+                start_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                self.logger.debug(f"{self.shell.user_ns=}")
                 self.logger.info(f"Loading checkpoint started at: {start_time}")
 
                 self.elastic_notebook.load_checkpoint(self.checkpoint_file_path)
 
-                end_time = datetime.now(timezone(timedelta(hours=9)))
-                loading_time = end_time - start_time
+                end_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                loading_time = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S.%f%z") - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
                 self.logger.info(f"Loading checkpoint finished at: {end_time}")
                 self.logger.info(f"Total loading time: {loading_time}")
+                self.logger.debug(f"{self.shell.user_ns=}")
 
                 self.logger.debug(
                     f"{self.elastic_notebook.dependency_graph.variable_snapshots=}"
@@ -234,13 +236,13 @@ class ElasticKernel(IPythonKernel):
         カーネル終了時に呼び出されるメソッド
         """
         try:
-            start_time = datetime.now(timezone(timedelta(hours=9)))
+            start_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
 
-            end_time = datetime.now(timezone(timedelta(hours=9)))
-            saving_time = end_time - start_time
+            end_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+            saving_time = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S.%f%z") - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
             self.logger.info(f"Saving checkpoint finished at: {end_time}")
             self.logger.info(f"Total saving time: {saving_time}")
 
