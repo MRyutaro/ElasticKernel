@@ -53,9 +53,13 @@ class ipykernel4exp(IPythonKernel):
             "%Y-%m-%d %H:%M:%S.%f",
         )
 
+        # ログディレクトリが存在しない場合は作成
+        log_dir = ".logs"
+        os.makedirs(log_dir, exist_ok=True)
+
         # ローテーティングファイルハンドラー
         rotating_file_handler = RotatingFileHandler(
-            "logs/ipykernel4exp.log",
+            os.path.join(log_dir, "ipykernel4exp.log"),
             maxBytes=5 * 1024 * 1024,
             backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
         )
