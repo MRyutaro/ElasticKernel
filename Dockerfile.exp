@@ -15,12 +15,16 @@ COPY elastic_kernel/ ./elastic_kernel/
 COPY elastic_notebook/ ./elastic_notebook/
 COPY ipykernel4exp/ ./ipykernel4exp/
 COPY pyproject.toml ./
+COPY uv.lock ./
 
 # 依存関係をインストール
-RUN uv pip install --system . && \
-    elastic-kernel install && \
-    ipykernel4exp install
+RUN uv sync --frozen --no-editable && \
+    uv run elastic-kernel install && \
+    uv run ipykernel4exp install
 
 WORKDIR /app
+
+# パスを設定
+ENV PATH="/tmp/.venv/bin:$PATH"
 
 CMD ["jupyter", "lab", "--allow-root", "--ip=0.0.0.0"]
