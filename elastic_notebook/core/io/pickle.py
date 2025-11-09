@@ -47,9 +47,8 @@ def is_exception(obj):
     if top_module in {"matplotlib.pyplot", "seaborn", "networkx", "pandas", "scipy"}:
         return True
 
-    if (
-        "sparse" in module_name
-        and getattr(type(obj), "__name__", "").lower().endswith("matrix")
+    if "sparse" in module_name and getattr(type(obj), "__name__", "").lower().endswith(
+        "matrix"
     ):
         return True
 
