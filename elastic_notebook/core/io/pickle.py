@@ -12,9 +12,6 @@ import pickle
 import types
 
 import dill
-import matplotlib.pyplot as plt
-import networkx
-import seaborn
 from scipy import sparse
 
 
@@ -47,7 +44,7 @@ def is_exception(obj):
     """
     if hasattr(obj, "__module__") and getattr(obj, "__module__", None).split(".")[
         0
-    ] in {plt.__name__, seaborn.__name__, networkx.__name__, "pandas"}:
+    ] in {"matplotlib.pyplot", "seaborn", "networkx", "pandas"}:
         return True
     exceptions = [sparse.csr.csr_matrix]
     return type(obj) in exceptions
