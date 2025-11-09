@@ -123,6 +123,12 @@ class UncomparableObj:
 
 
 def is_torch_tensor(obj):
+    """
+    PyTorch を import せずに torch.Tensor かどうかを判定する。
+
+    Returns:
+        bool: True if obj is torch.Tensor, False otherwise.
+    """
     cls = type(obj)
     return (
         getattr(cls, "__module__", "").startswith("torch")
