@@ -149,6 +149,20 @@ def is_lightgbm_dataset(obj):
     )
 
 
+def is_polars_dataframe(obj):
+    """
+    Polars を import せずに pl.DataFrame かどうかを判定する。
+
+    Returns:
+        bool: True if obj is pl.DataFrame, False otherwise.
+    """
+    cls = type(obj)
+    return (
+        getattr(cls, "__module__", "").startswith("polars")
+        and getattr(cls, "__name__", "") == "DataFrame"
+    )
+
+
 def construct_object_hash(obj, deepcopy=False):
     """
     Construct an object hash for the object. Uses deep-copy as a fallback.
@@ -207,12 +221,7 @@ def construct_object_hash(obj, deepcopy=False):
     if isinstance(obj, ModuleType) or isclass(obj):
         return ModuleObj()
 
-    # Polars dataframes are immutable.
-    # if isinstance(obj, pl.DataFrame):
-    #    return type(obj)
-
-    # LightGBM dataframes are immutable.
-    if is_lightgbm_dataset(obj):
+    if is_polars_dataframe(obj) or is_lightgbm_dataset(obj):
         return type(obj)
 
     # Try to hash the object; if the object is unhashable, use deepcopy as fallback.
