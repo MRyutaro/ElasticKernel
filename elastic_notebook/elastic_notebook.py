@@ -46,6 +46,14 @@ class JSTFormatter(logging.Formatter):
 
 class ElasticNotebook:
     def __init__(self, shell: InteractiveShell, log_file_dir: str):
+        # ロガーの設定
+        self.log_file_path = os.path.join(log_file_dir, "ElasticNotebook.log")
+        self.logger: logging.Logger
+        self.__setup_logger()
+        self.logger.info(f"===============================================")
+        self.logger.info("ElasticNotebookを初期化しました")
+        self.logger.info(f"===============================================")
+
         self.shell = shell
 
         # Initialize the dependency graph for capturing notebook state.
@@ -80,11 +88,6 @@ class ElasticNotebook:
         # マイグレーションと再計算の変数リスト
         self._vss_to_migrate = []
         self._vss_to_recompute = []
-
-        # ロガーの設定
-        self.log_file_path = os.path.join(log_file_dir, "ElasticNotebook.log")
-        self.logger: logging.Logger
-        self.__setup_logger()
 
     @property
     def vss_to_migrate(self):
@@ -300,7 +303,7 @@ class ElasticNotebook:
             self.selector = RecomputeAllBaseline(self.migration_speed_bps)
 
     def checkpoint(self, filename):
-        self.logger.info("Saving checkpoint started.")
+        self.logger.info("チェックポイントの保存を開始します")
 
         # Profile the migration speed to filename.
         if not self.manual_migration_speed:
@@ -328,12 +331,12 @@ class ElasticNotebook:
             self.update_migration_lists(vss_to_migrate, vss_to_recompute)
             self.logger.info(self)
 
-        self.logger.info("Saving checkpoint finished.")
+        self.logger.info("チェックポイントの保存を終了しました")
 
         return migrate_success
 
     def load_checkpoint(self, filename):
-        self.logger.info("Loading checkpoint started")
+        self.logger.info("チェックポイントの読み込みを開始します")
 
         (
             self.dependency_graph,
@@ -367,4 +370,4 @@ class ElasticNotebook:
         # リストを更新して表示
         self.update_migration_lists(vss_to_migrate, vss_to_recompute)
         self.logger.info(self)
-        self.logger.info("Loading checkpoint finished.")
+        self.logger.info("チェックポイントの読み込みを終了しました")
