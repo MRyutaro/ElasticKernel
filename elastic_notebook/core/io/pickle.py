@@ -12,7 +12,6 @@ import pickle
 import types
 
 import dill
-from scipy import sparse
 
 
 def is_picklable_fast(obj):
@@ -42,12 +41,19 @@ def is_exception(obj):
     """
     List of objects which _is_picklable_dill returns false (or crashes) but are picklable.
     """
-    if hasattr(obj, "__module__") and getattr(obj, "__module__", None).split(".")[
-        0
-    ] in {"matplotlib.pyplot", "seaborn", "networkx", "pandas"}:
+    module_name = getattr(type(obj), "__module__", "")
+    top_module = module_name.split(".")[0]
+
+    if top_module in {"matplotlib.pyplot", "seaborn", "networkx", "pandas", "scipy"}:
         return True
-    exceptions = [sparse.csr.csr_matrix]
-    return type(obj) in exceptions
+
+    if (
+        "sparse" in module_name
+        and getattr(type(obj), "__name__", "").lower().endswith("matrix")
+    ):
+        return True
+
+    return False
 
 
 def _is_picklable_raw(obj):

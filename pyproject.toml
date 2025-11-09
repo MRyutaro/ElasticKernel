@@ -18,7 +18,6 @@ dependencies = [
     "ipython",
     "networkx",
     "numpy",
-    "scipy",
     "xxhash",
     "jupyter_client",
     "jupyter",

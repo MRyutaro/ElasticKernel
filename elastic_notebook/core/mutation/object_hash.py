@@ -6,7 +6,6 @@ from types import FunctionType, ModuleType
 
 import networkx as nx
 import numpy as np
-import scipy
 import xxhash
 
 BASE_TYPES = [type(None), FunctionType]
@@ -190,6 +189,20 @@ def is_pandas_series(obj):
     )
 
 
+def is_scipy_sparse_csr_matrix(obj):
+    """
+    SciPy を import せずに scipy.sparse.csr_matrix かどうかを判定する。
+
+    Returns:
+        bool: True if obj is scipy.sparse.csr_matrix, False otherwise.
+    """
+    cls = type(obj)
+    return (
+        getattr(cls, "__module__", "").startswith("scipy.sparse")
+        and getattr(cls, "__name__", "") == "csr_matrix"
+    )
+
+
 def construct_object_hash(obj, deepcopy=False):
     """
     Construct an object hash for the object. Uses deep-copy as a fallback.
@@ -233,7 +246,7 @@ def construct_object_hash(obj, deepcopy=False):
         str1 = h.intdigest()
         return NpArrayObj(str1)
 
-    if isinstance(obj, scipy.sparse.csr_matrix):
+    if is_scipy_sparse_csr_matrix(obj):
         h = xxhash.xxh3_128()
         h.update(np.ascontiguousarray(obj))
         str1 = h.intdigest()
