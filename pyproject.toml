@@ -16,7 +16,6 @@ dependencies = [
     "dill",
     "ipykernel",
     "ipython",
-    "lightgbm",
     "matplotlib",
     "networkx",
     "numpy",

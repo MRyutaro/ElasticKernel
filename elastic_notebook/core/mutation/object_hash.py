@@ -4,7 +4,6 @@ import logging
 from inspect import isclass
 from types import FunctionType, ModuleType
 
-import lightgbm
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -136,6 +135,20 @@ def is_torch_tensor(obj):
     )
 
 
+def is_lightgbm_dataset(obj):
+    """
+    LightGBM を import せずに lightgbm.Dataset かどうかを判定する。
+
+    Returns:
+        bool: True if obj is lightgbm.Dataset, False otherwise.
+    """
+    cls = type(obj)
+    return (
+        getattr(cls, "__module__", "").startswith("lightgbm")
+        and getattr(cls, "__name__", "") == "Dataset"
+    )
+
+
 def construct_object_hash(obj, deepcopy=False):
     """
     Construct an object hash for the object. Uses deep-copy as a fallback.
@@ -199,7 +212,7 @@ def construct_object_hash(obj, deepcopy=False):
     #    return type(obj)
 
     # LightGBM dataframes are immutable.
-    if isinstance(obj, lightgbm.Dataset):
+    if is_lightgbm_dataset(obj):
         return type(obj)
 
     # Try to hash the object; if the object is unhashable, use deepcopy as fallback.
