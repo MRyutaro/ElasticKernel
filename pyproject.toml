@@ -23,7 +23,6 @@ dependencies = [
     "pandas",
     "scipy",
     "seaborn",
-    "torch",
     "xxhash",
     "jupyter_client",
     "jupyter",
@@ -68,12 +67,3 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
-
-[tool.uv.sources]
-# “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得
-torch = { index = "pytorch-cpu" }
-
-[[tool.uv.index]]
-name     = "pytorch-cpu"
-url      = "https://download.pytorch.org/whl/cpu"
-explicit = true

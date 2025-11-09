@@ -9,7 +9,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy
-import torch
 import xxhash
 
 BASE_TYPES = [type(None), FunctionType]
@@ -123,6 +122,14 @@ class UncomparableObj:
         return False
 
 
+def is_torch_tensor(obj):
+    cls = type(obj)
+    return (
+        getattr(cls, "__module__", "").startswith("torch")
+        and getattr(cls, "__name__", "") == "Tensor"
+    )
+
+
 def construct_object_hash(obj, deepcopy=False):
     """
     Construct an object hash for the object. Uses deep-copy as a fallback.
@@ -172,7 +179,7 @@ def construct_object_hash(obj, deepcopy=False):
         str1 = h.intdigest()
         return ScipyArrayObj(str1)
 
-    if isinstance(obj, torch.Tensor):
+    if is_torch_tensor(obj):
         h = xxhash.xxh3_128()
         h.update(np.ascontiguousarray(obj))
         str1 = h.intdigest()
