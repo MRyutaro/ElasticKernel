@@ -19,7 +19,6 @@ dependencies = [
     "matplotlib",
     "networkx",
     "numpy",
-    "pandas",
     "scipy",
     "seaborn",
     "xxhash",

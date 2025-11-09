@@ -14,7 +14,6 @@ import types
 import dill
 import matplotlib.pyplot as plt
 import networkx
-import pandas as pd
 import seaborn
 from scipy import sparse
 
@@ -48,9 +47,9 @@ def is_exception(obj):
     """
     if hasattr(obj, "__module__") and getattr(obj, "__module__", None).split(".")[
         0
-    ] in {plt.__name__, seaborn.__name__, networkx.__name__, pd.__name__}:
+    ] in {plt.__name__, seaborn.__name__, networkx.__name__, "pandas"}:
         return True
-    exceptions = [pd.core.frame.DataFrame, sparse.csr.csr_matrix]
+    exceptions = [sparse.csr.csr_matrix]
     return type(obj) in exceptions
 
 

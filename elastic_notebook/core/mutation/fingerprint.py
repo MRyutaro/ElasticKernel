@@ -2,8 +2,6 @@ import time
 from collections.abc import Iterable
 from types import FunctionType
 
-import pandas as pd
-
 from elastic_notebook.core.mutation.id_graph import (
     construct_id_graph,
     is_root_equals,
@@ -21,6 +19,8 @@ from elastic_notebook.core.mutation.object_hash import (
     UncomparableObj,
     UnserializableObj,
     construct_object_hash,
+    is_pandas_dataframe,
+    is_pandas_series,
 )
 
 BASE_TYPES = [
@@ -106,13 +106,13 @@ def compare_fingerprint(
     uncomparable = False
 
     # Hack: check for pandas dataframes and series: if the flag has been flipped back on, the object has been changed.
-    if isinstance(new_obj, pd.DataFrame):
+    if is_pandas_dataframe(new_obj):
         for _, col in new_obj.items():
             if col.__array__().flags.writeable:
                 changed = True
                 break
 
-    elif isinstance(new_obj, pd.Series):
+    elif is_pandas_series(new_obj):
         if new_obj.__array__().flags.writeable:
             changed = True
 

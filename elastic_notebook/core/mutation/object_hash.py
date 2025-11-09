@@ -6,7 +6,6 @@ from types import FunctionType, ModuleType
 
 import networkx as nx
 import numpy as np
-import pandas as pd
 import scipy
 import xxhash
 
@@ -163,6 +162,34 @@ def is_polars_dataframe(obj):
     )
 
 
+def is_pandas_dataframe(obj):
+    """
+    Pandas を import せずに pd.DataFrame かどうかを判定する。
+
+    Returns:
+        bool: True if obj is pd.DataFrame, False otherwise.
+    """
+    cls = type(obj)
+    return (
+        getattr(cls, "__module__", "").startswith("pandas")
+        and getattr(cls, "__name__", "") == "DataFrame"
+    )
+
+
+def is_pandas_series(obj):
+    """
+    Pandas を import せずに pd.Series かどうかを判定する。
+
+    Returns:
+        bool: True if obj is pd.Series, False otherwise.
+    """
+    cls = type(obj)
+    return (
+        getattr(cls, "__module__", "").startswith("pandas")
+        and getattr(cls, "__name__", "") == "Series"
+    )
+
+
 def construct_object_hash(obj, deepcopy=False):
     """
     Construct an object hash for the object. Uses deep-copy as a fallback.
@@ -177,12 +204,12 @@ def construct_object_hash(obj, deepcopy=False):
     # Flag hack for Pandas dataframes: each dataframe column is a numpy array.
     # All the writeable flags of these arrays are set to false; if after cell execution, any of these flags are
     # reset to True, we assume that the dataframe has been modified.
-    if isinstance(obj, pd.DataFrame):
+    if is_pandas_dataframe(obj):
         for _, col in obj.items():
             col.__array__().flags.writeable = False
         return DataframeObj()
 
-    if isinstance(obj, pd.Series):
+    if is_pandas_series(obj):
         obj.__array__().flags.writeable = False
         return DataframeObj()
 
