@@ -135,8 +135,9 @@ class ElasticKernel(IPythonKernel):
                 jupyter_notebook_name = "Untitled"
         else:
             # JPY_SESSION_NAMEが設定されていない場合（API経由での起動など）
-            # デフォルトディレクトリとkernel IDベースの名前を使用
-            root_dir = "/tmp"
+            # TODO: JPY_SESSION_NAMEの環境変数以外からjupyter_notebook_nameを生成できるようにする
+            # TODO: /appだとコンテナ以外のときにおかしくなるから修正する
+            root_dir = "/app"
             # kernel_idを使用してユニークな名前を生成
             kernel_id = os.environ.get("KERNEL_ID", "default")
             jupyter_notebook_name = f"kernel_{kernel_id}"
