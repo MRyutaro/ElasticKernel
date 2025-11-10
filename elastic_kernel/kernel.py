@@ -134,7 +134,12 @@ class ElasticKernel(IPythonKernel):
                 # TODO: #15 セッションを閉じずにファイル名を変えたときの処理を考える
                 jupyter_notebook_name = "Untitled"
         else:
-            raise ValueError("JPY_SESSION_NAME environment variable is not set.")
+            # JPY_SESSION_NAMEが設定されていない場合（API経由での起動など）
+            # デフォルトディレクトリとkernel IDベースの名前を使用
+            root_dir = "/tmp"
+            # kernel_idを使用してユニークな名前を生成
+            kernel_id = os.environ.get("KERNEL_ID", "default")
+            jupyter_notebook_name = f"kernel_{kernel_id}"
 
         # フォルダの作成
         elastic_kernel_dir = os.path.join(root_dir, ".elastic_kernel")
