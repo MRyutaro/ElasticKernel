@@ -1,10 +1,11 @@
+from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import logging
 import os
 import time
 import traceback
-from datetime import datetime, timedelta, timezone
-from logging.handlers import RotatingFileHandler
+import urllib
 
 from ipykernel.ipkernel import IPythonKernel
 
@@ -115,6 +116,80 @@ class ElasticKernel(IPythonKernel):
                 "Checkpoint file does not exist. Skipping loading checkpoint."
             )
 
+    def __resolve_path_without_jpy_session_name(self):
+        """
+        JPY_SESSION_NAME が無いときに、/api/sessions から自カーネルに紐づくノートブックの path を推定し、
+        (root_dir, jupyter_notebook_name) を返す。
+        取得できなければ kernel_id ベースにフォールバック。
+        """
+        # 1) 自分の kernel_id を connection_file から取得
+        try:
+            connection_file = self.session.config["IPKernelApp"]["connection_file"]
+            kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace("kernel-", "")
+        except Exception:
+            kernel_id = os.environ.get("KERNEL_ID", "default")
+
+        self.logger.debug(f"kernel_id: {kernel_id}")
+        # 2) Jupyter Server の場所とトークン（必要なら）
+        base_url = (
+            os.environ.get("JUPYTER_SERVER_URL")
+            or os.environ.get("JUPYTER_BASE_URL")
+            or "http://127.0.0.1:8888"
+        )
+        token = os.environ.get("JUPYTER_TOKEN")  # token='' の環境なら未指定でOK
+
+        def _fetch_sessions():
+            url = base_url.rstrip("/") + "/api/sessions"
+            if token:
+                sep = "&" if "?" in url else "?"
+                url = f"{url}{sep}token={urllib.parse.quote(token)}"
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+
+        # 3) 自カーネルに紐づく notebook path を探す（作成直後に備え、少しだけリトライ）
+        nb_path = None
+        for _ in range(10):
+            try:
+                for s in _fetch_sessions():
+                    k = s.get("kernel") or {}
+                    if k.get("id") == kernel_id:
+                        nb_path = s.get("path") or (s.get("notebook") or {}).get("path")
+                        break
+                if nb_path:
+                    break
+            except Exception:
+                pass
+            time.sleep(0.2)
+
+        # 4) 見つかった path から root_dir と名前を決定（相対パスは cwd 基準で解決）
+        self.logger.debug(f"nb_path: {nb_path}")
+        if nb_path:
+            if os.path.isabs(nb_path):
+                root_dir = os.path.dirname(nb_path)
+                nb_full_path = nb_path
+            else:
+                root_dir = os.getcwd()
+                nb_full_path = os.path.join(root_dir, nb_path)
+
+            # inode が取れれば安定名、ダメならファイル名、さらにダメなら kernel_id
+            if os.path.exists(nb_full_path):
+                try:
+                    inode = os.stat(nb_full_path).st_ino
+                    name = hashlib.sha256(str(inode).encode()).hexdigest()[:16]
+                except Exception:
+                    name = os.path.splitext(os.path.basename(nb_full_path))[0]
+            else:
+                name = os.path.splitext(os.path.basename(nb_path))[0]
+        else:
+            # 5) どうしても取得できないときのフォールバック
+            root_dir = os.getcwd()
+            name = f"kernel_{kernel_id}"
+
+        self.logger.debug(f"root_dir: {root_dir}")
+        self.logger.debug(f"name: {name}")
+        return root_dir, name
+
     def __setup_file_path(self):
         """
         ログやチェックポイントのファイルパスを設定
@@ -135,12 +210,7 @@ class ElasticKernel(IPythonKernel):
                 jupyter_notebook_name = "Untitled"
         else:
             # JPY_SESSION_NAMEが設定されていない場合（API経由での起動など）
-            # TODO: JPY_SESSION_NAMEの環境変数以外からjupyter_notebook_nameを生成できるようにする
-            # TODO: /appだとコンテナ以外のときにおかしくなるから修正する
-            root_dir = "/app"
-            # kernel_idを使用してユニークな名前を生成
-            kernel_id = os.environ.get("KERNEL_ID", "default")
-            jupyter_notebook_name = f"kernel_{kernel_id}"
+            root_dir, jupyter_notebook_name = self.__resolve_path_without_jpy_session_name()
 
         # フォルダの作成
         elastic_kernel_dir = os.path.join(root_dir, ".elastic_kernel")
@@ -169,7 +239,7 @@ class ElasticKernel(IPythonKernel):
         )
 
         # ローテーティングファイルハンドラー
-        rotating_file_handler = RotatingFileHandler(
+        rotating_file_handler = logging.handlers.RotatingFileHandler(
             self.log_file_path,
             maxBytes=5 * 1024 * 1024,
             backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
