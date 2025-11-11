@@ -209,6 +209,7 @@ class ElasticKernel(IPythonKernel):
                 jupyter_notebook_name = "Untitled"
         else:
             # JPY_SESSION_NAMEが設定されていない場合（API経由での起動など）
+            # TODO: self.shell.user_ns['__session__']からノートブックパスを取得できないか？
             root_dir, jupyter_notebook_name = (
                 self.__resolve_path_without_jpy_session_name()
             )
