@@ -18,7 +18,7 @@ COPY uv.lock ./
 
 # 依存関係をインストール
 RUN uv sync --frozen --no-editable && \
-    uv run elastic-kernel install
+    elastic-kernel install
 
 WORKDIR /app
 
