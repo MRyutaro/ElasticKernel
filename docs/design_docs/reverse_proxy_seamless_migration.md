@@ -199,19 +199,20 @@ ElasticKernelでは、checkpoint/restore時にユーザーがページをリロ�
 
 5. カーネルが`idle`状態になるまで待機
 
-6. 旧コンテナのセッション情報をもとに、新コンテナで**旧session_idを使って**セッションを作成
+6. 旧コンテナのセッション情報をもとに、新コンテナでセッションを作成
    ```bash
    # 各セッションについて繰り返し
    curl -X POST "http://localhost:8889/api/sessions" \
         -H "Content-Type: application/json" \
         -d '{
-            "id": "'"$OLD_SESSION_ID"'",
             "path": "'"$NOTEBOOK_PATH"'",
             "type": "notebook",
             "kernel": {"id": "'"$NEW_KERNEL_ID"'", "name": "elastic_kernel"}
         }'
    ```
-   **注意:** Jupyter Server APIが`id`パラメータをサポートしているか要検証（セクション8.5.1）
+   **注意:** 実験3により、旧session_idを指定することは不可能と判明
+   - 新しいsession_idが自動生成される
+   - プロキシでsession_idを管理する必要がある（Option CまたはOption D）
 
 **状態:**
 ```
@@ -461,20 +462,28 @@ restart() {
     # 8. 新コンテナでrestore
     NEW_KERNEL_ID=$(restore_container "localhost:$NEW_PORT")
 
-    # 9. 新コンテナでセッション情報を再作成（旧session_idを使用）
+    # 9. 新コンテナでセッション情報を再作成
+    # 注意: 実験3により、旧session_idを指定することは不可能と判明
+    # プロキシでsession_idを管理する必要がある（Option CまたはOption D）
     echo "$OLD_SESSIONS" | jq -c '.[]' | while read session; do
-        OLD_SESSION_ID=$(echo "$session" | jq -r '.id')
+        OLD_SESSION_ID=$(echo "$session" | jq -r '.id')  # プロキシでマッピングに使用
         NOTEBOOK_PATH=$(echo "$session" | jq -r '.path')
-        curl -X POST "http://localhost:$NEW_PORT/api/sessions" \
+
+        # 新session_idでセッションを作成
+        NEW_SESSION=$(curl -X POST "http://localhost:$NEW_PORT/api/sessions" \
             -H "Content-Type: application/json" \
             -d "{
-                \"id\": \"$OLD_SESSION_ID\",
                 \"path\": \"$NOTEBOOK_PATH\",
                 \"type\": \"notebook\",
                 \"kernel\": {\"id\": \"$NEW_KERNEL_ID\", \"name\": \"elastic_kernel\"}
-            }"
+            }")
+
+        NEW_SESSION_ID=$(echo "$NEW_SESSION" | jq -r '.id')
+
+        # プロキシに旧session_id → 新session_idのマッピングを登録（Option Cの場合）
+        # curl -X POST "http://localhost:$PROXY_PORT/admin/register_session_mapping" \
+        #     -d "{\"old_id\": \"$OLD_SESSION_ID\", \"new_id\": \"$NEW_SESSION_ID\"}"
     done
-    # 注意: Jupyter Server APIがidパラメータをサポートしているか要検証（セクション8.5.1）
 
     # 10. プロキシ切り替え
     curl -X POST "http://localhost:$PROXY_PORT/admin/switch" \
@@ -749,6 +758,48 @@ asyncio.run(main())
 - ⚠️ **ただし、この実験では新カーネルがチェックポイントから復元されていない**
   - 新カーネル（64b4f1f6...）は手動で起動したもので、ElasticKernelのcheckpoint復元機能が使われていない
 
+#### 実験3: 旧session_idを指定してセッションを作成できるか ❌
+
+**異なるコンテナ間で旧session_idを保持してセッションを作成しようとしました。**
+
+**実験手順:**
+
+1. **旧コンテナ（8888）からセッション情報を取得**
+   ```bash
+   OLD_SESSIONS=$(curl -s "http://localhost:8888/api/sessions")
+   OLD_SESSION_ID=$(echo "$OLD_SESSIONS" | jq -r '.[0].id')
+   NOTEBOOK_PATH=$(echo "$OLD_SESSIONS" | jq -r '.[0].path')
+   ```
+
+2. **新コンテナ（8889）でカーネルを起動**
+   ```bash
+   NEW_KERNEL_ID=$(curl -X POST "http://localhost:8889/api/kernels" \
+       -H "Content-Type: application/json" \
+       -d '{"name":"elastic_kernel"}' | jq -r '.id')
+   ```
+
+3. **新コンテナで旧session_idを指定してセッション作成を試みる**
+   ```bash
+   curl -X POST "http://localhost:8889/api/sessions" \
+       -H "Content-Type: application/json" \
+       -d '{
+           "id": "'$OLD_SESSION_ID'",
+           "path": "'$NOTEBOOK_PATH'",
+           "type": "notebook",
+           "kernel": {"id": "'$NEW_KERNEL_ID'", "name": "elastic_kernel"}
+       }'
+   ```
+
+**実験3の結論:**
+- ❌ **Jupyter Server APIは`id`パラメータを無視する**
+- ❌ セッション作成時に新しいUUIDが自動生成される
+- ❌ 旧`session_id`を保持することは不可能
+- ❌ **Option B（旧session_idを使ってセッション作成）は実現不可能**
+
+**この結果の影響:**
+- Option Bは採用できない
+- Option C（プロキシでsession_idをインターセプト）またはOption D（JupyterLabの自動再接続に依存）が必要
+
 ### 8.2 ブラウザのカーネル接続メカニズム
 
 **JupyterLabがカーネルに接続する流れ:**
@@ -905,7 +956,7 @@ async def sessions_proxy(request: Request):
 
 **実現可能性:** 中（実装コストが高い）
 
-#### Option B: セッション情報を移行する（旧session_idを使用）
+#### Option B: セッション情報を移行する（旧session_idを使用） ❌ 実現不可能
 
 **アイデア:**
 - 旧コンテナから`/api/sessions`でセッション情報（`session_id`, `path`, `kernel_id`）を取得
@@ -929,7 +980,7 @@ NEW_KERNEL_ID=$(curl -X POST "http://localhost:8889/api/kernels" \
     -d '{"name": "elastic_kernel"}' | jq -r '.id')
 # → "kernel-789"（ElasticKernelが自動的にcheckpoint.pickleから復元）
 
-# 3. 新コンテナで旧session_idを使ってセッションを作成（要検証！）
+# 3. 新コンテナで旧session_idを使ってセッションを作成（❌ 失敗）
 curl -X POST "http://localhost:8889/api/sessions" \
     -H "Content-Type: application/json" \
     -d '{
@@ -938,22 +989,17 @@ curl -X POST "http://localhost:8889/api/sessions" \
         "type": "notebook",
         "kernel": {"id": "'$NEW_KERNEL_ID'", "name": "elastic_kernel"}
     }'
+# → idパラメータは無視され、新しいUUIDが自動生成される
 ```
 
-**重要な検証ポイント:**
-- ⚠️ Jupyter Server APIで`id`パラメータを指定してセッションを作成できるか？
-- ⚠️ できない場合は、新しい`session_id`が生成され、ブラウザとの接続が失われる
+**実験3の結果により判明:**
+- ❌ **Jupyter Server APIは`id`パラメータをサポートしていない**
+- ❌ セッション作成時に新しいUUIDが必ず自動生成される
+- ❌ 旧`session_id`を保持することは不可能
 
-**メリット:**
-- ✅ Jupyter標準APIのみを使用（プロキシの実装がシンプル）
-- ✅ セッション情報が正しく維持される
-- ✅ **旧session_idを保持できれば、ブラウザがWebSocket再接続時に成功する**
-
-**デメリット:**
-- ❌ Jupyter Server APIが`id`パラメータをサポートしているか不明（**要検証**）
-- ❌ サポートしていない場合、新`session_id`が生成され、ブラウザとの接続が失われる
-
-**実現可能性:** 高（ただしAPIの検証が必要）
+**結論:**
+- ❌ **Option Bは実現不可能**
+- → Option C（プロキシでインターセプト）またはOption D（JupyterLabの自動再接続に依存）を検討する必要がある
 
 #### Option C: プロキシが/api/sessionsをインターセプトする
 
@@ -1029,45 +1075,22 @@ async def websocket_proxy(websocket: WebSocket, kernel_id: str, session_id: str)
 
 ### 8.5 検証が必要な項目
 
-**既に確認済み（実験2）:**
-- ✅ 同一コンテナ内で`PATCH /api/sessions/{session_id}`によるカーネル切り替えが成功
+**既に確認済み:**
+
+#### ✅ 実験2: 同一コンテナ内でのカーネル切り替え
+- ✅ `PATCH /api/sessions/{session_id}`によるカーネル切り替えが成功
 - ✅ ブラウザ上でページリロード不要で新カーネルに接続できた
 
-**追加で検証が必要な項目:**
+#### ❌ 実験3: 旧session_idを指定してセッションを作成（Option B検証）
+- ❌ Jupyter Server APIは`id`パラメータをサポートしていない
+- ❌ 新しいUUIDが必ず自動生成される
+- ❌ **Option Bは実現不可能**
 
-#### 8.5.1 旧session_idを指定してセッションを作成できるか（Option B検証）
+---
 
-**実験方法:**
-1. 旧コンテナ（8888）でセッション情報を取得
-   ```bash
-   OLD_SESSIONS=$(curl -s "http://localhost:8888/api/sessions")
-   OLD_SESSION_ID=$(echo "$OLD_SESSIONS" | jq -r '.[0].id')
-   ```
+**残りの検証項目:**
 
-2. 新コンテナ（8889）でカーネルを起動
-
-3. 新コンテナで**旧session_idを指定**してセッションを作成
-   ```bash
-   curl -X POST "http://localhost:8889/api/sessions" \
-     -H "Content-Type: application/json" \
-     -d '{
-         "id": "'$OLD_SESSION_ID'",
-         "path": "notebook.ipynb",
-         "type": "notebook",
-         "kernel": {"id": "'$NEW_KERNEL_ID'", "name": "elastic_kernel"}
-     }'
-   ```
-
-**確認事項:**
-- [ ] Jupyter Server APIが`id`パラメータをサポートしているか？
-- [ ] 指定した`id`でセッションが作成されるか？
-- [ ] それとも、新しいUUIDが自動生成されるか？
-
-**期待される結果:**
-- ✅ 指定した`id`でセッションが作成される → Option Bが実現可能
-- ❌ 新しいUUIDが生成される → Option C（プロキシでインターセプト）またはOption Dが必要
-
-#### 8.5.2 プロキシ切り替え時のJupyterLabの挙動
+#### 8.5.1 プロキシ切り替え時のJupyterLabの挙動（次の実験）
 
 **実験方法:**
 1. 簡易プロキシを実装（ポート8888と8889を単純転送）
@@ -1088,7 +1111,7 @@ async def websocket_proxy(websocket: WebSocket, kernel_id: str, session_id: str)
 - ⚠️ 既知の`session_id`で再接続を試み、失敗してエラー表示
 - ❌ 完全にハングして、ページリロードが必要
 
-#### 8.5.3 WebSocketメッセージ内のsession_idとkernel_id
+#### 8.5.2 WebSocketメッセージ内のsession_idとkernel_id（オプション）
 
 **実験方法:**
 1. ブラウザの開発者ツールでWebSocketトラフィックをキャプチャ
@@ -1107,86 +1130,102 @@ async def websocket_proxy(websocket: WebSocket, kernel_id: str, session_id: str)
 
 ### 8.6 推奨アプローチ
 
-**実験2の成果により、実装方針が明確になりました:**
+**実験2と実験3の結果を踏まえて:**
 
 - ✅ 同一コンテナ内では`PATCH /api/sessions/{session_id}`でカーネル切り替え成功
-- ⚠️ 異なるコンテナ間では、session_idの移行方法が未確認
+- ❌ **Option B（旧session_idを使ってセッション作成）は実現不可能**
+  - Jupyter Server APIは`id`パラメータをサポートしていない
+  - 新しいUUIDが必ず自動生成される
+
+**残る選択肢:**
+- **Option C**: プロキシで`/api/sessions`をインターセプトしてsession_idを書き換え
+- **Option D**: JupyterLabの自動再接続に依存（最悪ページリロード）
+- **Option A**: すべてのIDを完全にリライト（最も複雑、最後の手段）
 
 **段階的な実装戦略:**
 
-#### Phase 1: セクション8.5.1の実験を最優先で実施
+#### Phase 1: セクション8.5.1の実験を実施（次のステップ）
 
-**目的:** Option Bの実現可能性を確認
+**目的:** JupyterLabの自動再接続挙動を確認
 
 **実験内容:**
-- 新コンテナで旧`session_id`を指定してセッションを作成できるかを確認
-- Jupyter Server APIが`id`パラメータをサポートしているかを検証
-
-**期待される結果:**
-- ✅ **成功した場合** → Option Bを採用（最もシンプル）
-  - 新コンテナで旧session_idを使ってセッションを作成
-  - ブラウザがWebSocket再接続時に同じsession_idで接続成功
-  - ページリロード不要で移行完了 🎉
-
-- ❌ **失敗した場合** → Phase 2へ進む
-
-#### Phase 2: Option Cまたはセクション8.5.2の実験を実施
-
-**Option Cを試す場合:**
-- プロキシで`/api/sessions`をインターセプトしてsession_idを書き換え
-- WebSocket接続時もsession_idを変換
-- 実装コスト: 中
-
-**セクション8.5.2の実験を試す場合:**
 - 簡易プロキシでポート切り替えを実装
-- JupyterLabの自動再接続挙動を観察
-- `/api/sessions`を再取得して新セッションに自動接続するかを確認
+- プロキシ切り替え時のJupyterLabの挙動を観察
+- ブラウザの開発者ツールでネットワークトラフィックを監視
+- `/api/sessions`を再取得するかを確認
 
 **期待される結果:**
-- ✅ JupyterLabが自動的に`/api/sessions`を再取得 → Option D（最もシンプル）を採用
-- ❌ 自動再接続が機能しない → Phase 3へ進む
+- ✅ **JupyterLabが`/api/sessions`を自動的に再取得** → **Option Dを採用**
+  - プロキシは単純な転送のみで実装完了
+  - 最もシンプルで保守しやすい
+  - ただし、ページリロードが必要になる可能性あり（現状と同じ）
 
-#### Phase 3: Option Cの実装（プロキシでインターセプト）
+- ❌ **自動再接続が機能しない、またはエラーが出る** → **Phase 2へ進む**
+
+#### Phase 2: Option Cの実装を検討
 
 **実装内容:**
 - プロキシが`/api/sessions`と`/api/kernels/.../channels`をインターセプト
 - session_idをマッピングテーブルで変換
-- kernel_idは変換不要（セッション情報に含まれる）
+  ```python
+  # 旧session_id → 新session_id のマッピング
+  session_mapping = {
+      "old-session-abc": "new-session-xyz"
+  }
+
+  # /api/sessionsのレスポンスを書き換え
+  for session in sessions:
+      new_id = session["id"]
+      old_id = find_old_session_by_path(session["path"])
+      session["id"] = old_id
+      session_mapping[old_id] = new_id
+
+  # WebSocket接続時にsession_idを変換
+  actual_session_id = session_mapping.get(session_id, session_id)
+  ```
 
 **メリット:**
 - ページリロード不要で移行完了
+- kernel_idの変換は不要（セッション情報に含まれる）
 - Option Aよりシンプル
 
-#### Phase 4: 完全な透過性の実現（オプション）
+**デメリット:**
+- プロキシの実装が複雑化
+- 複数ノートブックがある場合、pathによる識別が必要
 
-**Option Aの実装（最も複雑）:**
-- プロキシですべてのREST APIとWebSocketメッセージを処理
+#### Phase 3: Option Aの実装（最後の手段）
+
+**採用条件:**
+- Phase 2でも問題が残る場合のみ検討
+- kernel_idの変換も必要になった場合
+
+**実装内容:**
+- すべてのREST APIとWebSocketメッセージを処理
 - session_idとkernel_idを完全にリライト
-- 完全に透過的な移行を実現
 
-**採用判断:**
-- Phase 3でも問題が残る場合のみ検討
-- 実装コストが高いため、最後の手段
+**デメリット:**
+- 実装コストが非常に高い
+- バグが混入しやすい
+- 保守が困難
 
 ---
 
 **次のステップ（優先順位順）:**
 
 1. **🔥 最優先: セクション8.5.1の実験を実施**
-   - 新コンテナで旧session_idを使ってセッション作成できるかを確認
-   - これが成功すれば、最もシンプルな実装で完了
+   - 簡易プロキシを実装してポート切り替えをテスト
+   - JupyterLabが自動的に`/api/sessions`を再取得するかを確認
+   - ブラウザの開発者ツールでネットワークトラフィックを監視
 
-2. セクション8.5.2の実験を実施
-   - プロキシ切り替え時のJupyterLabの挙動を観察
-   - 自動再接続の有無を確認
+2. **実験結果に基づいて実装方針を決定:**
+   - ✅ 自動再接続が機能 → **Option Dで実装開始**（推奨）
+   - ❌ 自動再接続が機能しない → **Option Cの実装を検討**
 
-3. セクション8.5.3の実験を実施（オプション）
+3. セクション8.5.2の実験（オプション）
    - WebSocketメッセージ内のID構造を解析
-   - プロキシ実装の詳細設計に活用
+   - Option Cの実装時に参考にする
 
-4. 実験結果をドキュメントに記録
-
-5. 最適な実装オプションを選択してプロトタイプを開始
+4. プロトタイプの実装を開始
 
 ---
 
@@ -1218,65 +1257,74 @@ async def websocket_proxy(websocket: WebSocket, kernel_id: str, session_id: str)
 
 **実験2の成果:**
 - ✅ `PATCH /api/sessions/{session_id}`でセッションのカーネルを切り替え可能
-- ✅ **ブラウザ上でページリロード不要で新カーネルに接続できた**
+- ✅ **同一コンテナ内ではブラウザ上でページリロード不要で新カーネルに接続できた**
 - ✅ セルを実行すると正常に動作（connections=1になる）
-- ⚠️ ただし、新カーネルがcheckpointから復元されていない問題が残る
 
-**この発見の意義:**
-- 同一コンテナ内ではシームレスなカーネル切り替えが可能と確認
-- 異なるコンテナ間でも、session_idを適切に管理すれば実現可能性が高い
+**実験3の結果:**
+- ❌ **Jupyter Server APIは`id`パラメータをサポートしていない**
+- ❌ セッション作成時に新しいUUIDが必ず自動生成される
+- ❌ 旧`session_id`を保持することは不可能
+- ❌ **Option B（旧session_idを使ってセッション作成）は実現不可能**
 
-### 10.2 解決される問題（目標）
+**これらの発見の意義:**
+- 同一コンテナ内ではシームレスなカーネル切り替えが可能
+- 異なるコンテナ間では、session_idを管理する仕組みが必要
+- プロキシでsession_idをインターセプト（Option C）、またはJupyterLabの自動再接続（Option D）が現実的
 
-- **ページリロード不要（理想）**: プロキシが自動的に新コンテナに接続先を切り替え
-  - Option Bが成功すれば実現可能
-  - Option C/Dでも一定の改善が期待できる
-- **ユーザー体験の向上**: checkpoint/restoreが裏で実行され、ユーザーは作業を継続可能
-- **シームレスな移行**: WebSocket接続は一時的に切断されるが、適切に再接続
+### 10.2 残る選択肢と解決される問題
+
+**Option C: プロキシで/api/sessionsをインターセプト**
+- ページリロード不要で移行完了（理想）
+- 実装コスト: 中
+- ユーザー体験: 最高
+
+**Option D: JupyterLabの自動再接続に依存**
+- 実装が最もシンプル（プロキシは単純転送のみ）
+- 実装コスト: 低
+- ユーザー体験: 自動再接続が機能すればページリロード不要、機能しなければページリロード1回必要（現状と同じ）
+
+**Option A: すべてのIDを完全にリライト**
+- 最後の手段（実装コストが非常に高い）
 
 ### 10.3 実装の優先順位
 
-**最優先（Phase 1）:**
+**Phase 1（次のステップ）:**
 1. 🔥 **セクション8.5.1の実験を実施**（最重要）
-   - 新コンテナで旧session_idを使ってセッション作成できるかを確認
-   - これが成功すれば、最もシンプルな実装で完了
+   - 簡易プロキシを実装してポート切り替えをテスト
+   - JupyterLabが自動的に`/api/sessions`を再取得するかを確認
+   - **この実験でOption DとOption Cのどちらを採用するか決定**
 
 **Phase 2以降:**
-2. セクション8.5.2の実験を実施（JupyterLabの自動再接続挙動を確認）
-3. 実験結果に基づいて実装オプション（A/B/C/D）を選択
-4. カスタムプロキシの実装（Python/FastAPI）
-5. run.shへの統合（新しいrestartフロー）
-6. エラーハンドリングの強化
-7. モニタリング・ログ機能の追加
+2. 実験結果に基づいて実装方針を決定:
+   - ✅ 自動再接続が機能 → **Option Dで実装**（推奨）
+   - ❌ 自動再接続が機能しない → **Option Cで実装**
+3. カスタムプロキシの実装（Python/FastAPI）
+4. run.shへの統合（新しいrestartフロー）
+5. エラーハンドリングの強化
+6. モニタリング・ログ機能の追加
 
 ### 10.4 次のステップ（具体的なアクション）
 
-**1. セクション8.5.1の実験（最優先）**
-   ```bash
-   # 旧コンテナからセッション情報を取得
-   OLD_SESSION_ID=$(curl -s "http://localhost:8888/api/sessions" | jq -r '.[0].id')
+**1. セクション8.5.1の実験を実施（最優先）**
 
-   # 新コンテナでカーネルを起動
-   NEW_KERNEL_ID=$(curl -X POST "http://localhost:8889/api/kernels" \
-       -d '{"name":"elastic_kernel"}' | jq -r '.id')
+**実験内容:**
+- 簡易プロキシを実装（ポート8888と8889を単純転送）
+- JupyterLabをプロキシ経由で起動してノートブックを開く
+- 新コンテナ（8889）でセッションを作成（新session_idで）
+- プロキシを8888から8889に切り替え
+- ブラウザの開発者ツールでネットワークトラフィックを監視
 
-   # 新コンテナで旧session_idを指定してセッション作成
-   curl -X POST "http://localhost:8889/api/sessions" \
-       -H "Content-Type: application/json" \
-       -d '{
-           "id": "'$OLD_SESSION_ID'",
-           "path": "notebook.ipynb",
-           "type": "notebook",
-           "kernel": {"id": "'$NEW_KERNEL_ID'", "name": "elastic_kernel"}
-       }'
-   ```
+**確認すべきこと:**
+- WebSocket接続が切断されるか？
+- JupyterLabが`/api/sessions`を再取得するか？
+- それとも、既知の`session_id`でWebSocket再接続を試みるか？
+- 再接続に失敗した場合、エラーメッセージが表示されるか？
+- ページリロード（F5）で正常に新カーネルに接続できるか？
 
 **2. 実験結果をドキュメントに記録**
-   - 成功した場合: Option Bの実装を開始
-   - 失敗した場合: セクション8.5.2の実験へ進む
 
-**3. プロトタイプの実装**
-   - 選択したオプションでプロキシを実装
+**3. 実装方針を決定してプロトタイプを開始**
+   - Option DまたはOption Cで実装
    - run.shへの統合
 
 ---
