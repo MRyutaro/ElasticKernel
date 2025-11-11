@@ -563,7 +563,314 @@ sudo podman rm "$CONTAINER_NAME-$OLD_PORT"
 
 ---
 
-## 8. 今後の拡張可能性
+## 8. カーネルID管理の詳細
+
+### 8.1 Jupyter WebSocket APIの仕組み
+
+**発見事項（実験による確認）:**
+
+JupyterのWebSocket APIでは、任意の`session_id`を使って既存のカーネルに接続できることが確認されました。
+
+**WebSocket接続のURL構造:**
+```
+ws://localhost:8888/api/kernels/{kernel_id}/channels?session_id={session_id}
+```
+
+**実験コード:**
+```python
+import asyncio
+import json
+import uuid
+import websockets
+
+JUPYTER_URL = "ws://localhost:8888/api/kernels/{kernel_id}/channels?session_id={session_id}"
+KERNEL_ID = "e4a45c3d-68b8-426a-9cbf-fb47d770a13a"  # 既存のカーネルID
+
+async def main():
+    session_id = str(uuid.uuid4())  # 任意のUUID
+    url = JUPYTER_URL.format(kernel_id=KERNEL_ID, session_id=session_id)
+
+    async with websockets.connect(url) as ws:
+        # kernel_info_requestメッセージを送信
+        msg = {
+            "header": {
+                "msg_id": str(uuid.uuid4()),
+                "username": "api-client",
+                "session": session_id,
+                "msg_type": "kernel_info_request",
+                "version": "5.3"
+            },
+            "parent_header": {},
+            "metadata": {},
+            "content": {},
+            "channel": "shell"
+        }
+        await ws.send(json.dumps(msg))
+        print("Sent kernel_info_request")
+
+        # レスポンスを受信
+        while True:
+            raw = await ws.recv()
+            msg = json.loads(raw)
+            print(f"← {msg['header'].get('msg_type')}")
+            if msg["header"].get("msg_type") == "kernel_info_reply":
+                print("✅ Kernel is alive and connected!")
+                break
+
+asyncio.run(main())
+```
+
+**重要な発見:**
+- `session_id`は単なるクライアント識別子で、サーバー側で厳密に管理されていない
+- 任意の`session_id`で既存の`kernel_id`に接続できる
+- カーネルは`idle`状態になり、正常に通信できる
+
+### 8.2 ブラウザのカーネル接続メカニズム
+
+**JupyterLabがカーネルに接続する流れ:**
+
+1. **ノートブックを開く**
+   - ブラウザがノートブックファイル（例: `notebook.ipynb`）を開く
+   - JupyterLabフロントエンドが`/api/sessions`をリクエスト
+
+2. **セッション情報の取得**
+   ```bash
+   GET /api/sessions
+   ```
+   レスポンス例:
+   ```json
+   [
+     {
+       "id": "session-abc123",
+       "path": "notebook.ipynb",
+       "name": "notebook.ipynb",
+       "type": "notebook",
+       "kernel": {
+         "id": "kernel-xyz789",
+         "name": "python3",
+         "last_activity": "2025-11-11T10:00:00Z",
+         "execution_state": "idle",
+         "connections": 1
+       }
+     }
+   ]
+   ```
+
+3. **WebSocket接続の確立**
+   - フロントエンドが`kernel_id`（例: `kernel-xyz789`）を取得
+   - クライアント側で`session_id`を生成（UUID）
+   - WebSocket接続を確立:
+     ```
+     ws://localhost:8888/api/kernels/kernel-xyz789/channels?session_id=client-generated-uuid
+     ```
+
+**重要なポイント:**
+- ブラウザは`kernel_id`を`/api/sessions`から取得する
+- `session_id`はクライアント側で生成され、サーバーには保存されない
+- プロキシ切り替え後、ブラウザが旧`kernel_id`で接続を試みる問題が発生する
+
+### 8.3 カーネルID変更問題の詳細分析
+
+**問題の核心:**
+
+```
+[旧コンテナ]                      [新コンテナ]
+kernel_id: abc123                 kernel_id: xyz789
+      ↑
+ブラウザは abc123 に接続しようとする
+      ↓
+プロキシ切り替え後、新コンテナには abc123 が存在しない
+      ↓
+404 Not Found または接続エラー
+```
+
+**ブラウザの挙動予測:**
+
+プロキシ切り替え時にWebSocket接続が切断されると、JupyterLabは以下のいずれかの挙動を取る可能性があります（**要検証**）：
+
+1. **既知のkernel_idに再接続を試みる**
+   - ブラウザがキャッシュしている旧`kernel_id`（abc123）に再接続
+   - → 新コンテナに存在しないため、404エラー
+
+2. **`/api/sessions`を再取得する**
+   - WebSocket切断時に`/api/sessions`を再度リクエスト
+   - 新しい`kernel_id`（xyz789）を取得して再接続
+   - → 自動的に新カーネルに接続（理想的）
+
+3. **エラーを表示してユーザーにリロードを促す**
+   - 再接続に失敗し、「カーネルとの接続が切れました」と表示
+   - → ユーザーがF5リロードすることで新カーネルに接続
+
+### 8.4 実装オプションの比較
+
+#### Option A: プロキシでkernel_idをリライトする
+
+**アイデア:**
+- プロキシがリクエストを転送する際、URLの`kernel_id`を書き換える
+- 旧`kernel_id`（abc123） → 新`kernel_id`（xyz789）にマッピング
+- レスポンスも逆変換して、ブラウザには旧IDが維持されているように見せる
+
+**実装イメージ:**
+```python
+# プロキシのマッピングテーブル
+kernel_id_mapping = {
+    "abc123": "xyz789"  # 旧 → 新
+}
+
+@app.websocket("/api/kernels/{kernel_id}/channels")
+async def websocket_proxy(websocket: WebSocket, kernel_id: str):
+    # kernel_idをリライト
+    actual_kernel_id = kernel_id_mapping.get(kernel_id, kernel_id)
+
+    # 新コンテナに転送
+    target = f"ws://localhost:{new_port}/api/kernels/{actual_kernel_id}/channels"
+    # WebSocketプロキシ処理...
+```
+
+**メリット:**
+- ブラウザからは透過的（ページリロード不要）
+- 既存のJupyterLabフロントエンドに変更不要
+
+**デメリット:**
+- プロキシの実装が複雑になる
+- WebSocketメッセージ内の`kernel_id`も書き換える必要がある可能性
+- レスポンスのJSON内の`kernel_id`も逆変換が必要
+
+**実現可能性:** 中〜高（要実装検証）
+
+#### Option B: セッション情報を移行する
+
+**アイデア:**
+- 旧コンテナから`/api/sessions`でセッション情報を取得
+- 新コンテナで同じ`path`（ノートブックファイル名）に対して新カーネルを紐づけ
+- ブラウザが`/api/sessions`を再取得したときに新`kernel_id`を返す
+
+**実装イメージ:**
+```bash
+# 1. 旧コンテナからセッション情報を取得
+OLD_SESSIONS=$(curl -s "http://localhost:8888/api/sessions")
+# → [{"id": "...", "path": "notebook.ipynb", "kernel": {"id": "abc123", ...}}]
+
+# 2. 新コンテナでカーネルを起動
+NEW_KERNEL_ID=$(curl -X POST "http://localhost:8889/api/kernels" \
+    -H "Content-Type: application/json" \
+    -d '{"name": "elastic_kernel"}' | jq -r '.id')
+# → "xyz789"
+
+# 3. 新コンテナでセッションを作成（同じpathで紐づけ）
+curl -X POST "http://localhost:8889/api/sessions" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "path": "notebook.ipynb",
+        "type": "notebook",
+        "kernel": {"id": "'$NEW_KERNEL_ID'", "name": "elastic_kernel"}
+    }'
+```
+
+**メリット:**
+- Jupyter標準APIのみを使用（プロキシの実装がシンプル）
+- セッション情報が正しく維持される
+
+**デメリット:**
+- ブラウザが`/api/sessions`を再取得するまで新カーネルに接続できない
+- JupyterLabの自動再接続が`/api/sessions`を再取得するか不明（**要検証**）
+
+**実現可能性:** 高（ただし自動再接続の挙動次第）
+
+#### Option C: JupyterLabの自動再接続に依存
+
+**アイデア:**
+- プロキシ切り替え時にWebSocket接続を切断
+- JupyterLabの標準機能による自動再接続を期待
+- 最悪の場合、ユーザーにページリロードを促す（現状より改善）
+
+**実装:**
+- セッション情報を移行（Option B）
+- プロキシを切り替え
+- JupyterLabが自動的に`/api/sessions`を再取得して新カーネルに接続することを期待
+
+**メリット:**
+- 実装がシンプル
+- JupyterLabの標準機能を最大限活用
+
+**デメリット:**
+- 自動再接続が機能しない場合、ページリロードが必要
+- ユーザー体験が挙動に依存する
+
+**実現可能性:** 中（JupyterLabの挙動次第）
+
+### 8.5 検証が必要な項目
+
+プロキシ切り替えの実装前に、以下の項目を実験で確認する必要があります：
+
+#### 8.5.1 JupyterLabのWebSocket再接続挙動
+
+**実験方法:**
+1. JupyterLabでノートブックを開く
+2. ブラウザの開発者ツールでネットワークトラフィックを監視
+3. WebSocket接続を強制的に切断（サーバー側でカーネルを停止）
+4. JupyterLabの再接続処理を観察
+
+**確認事項:**
+- [ ] WebSocket切断後、JupyterLabが`/api/sessions`を再取得するか？
+- [ ] それとも、既知の`kernel_id`に再接続を試みるか？
+- [ ] 再接続に失敗した場合、エラーメッセージが表示されるか？
+- [ ] ユーザーがページをリロードすると、正常に新カーネルに接続できるか？
+
+#### 8.5.2 プロキシ切り替え時の実際の挙動
+
+**実験方法:**
+1. 簡易プロキシを実装（ポート8888と8889を切り替え）
+2. JupyterLabを起動してノートブックを開く
+3. プロキシを8888から8889に切り替え
+4. ブラウザの挙動を観察
+
+**確認事項:**
+- [ ] WebSocket接続が切断されるか？
+- [ ] JupyterLabが自動的に再接続するか？
+- [ ] ページリロードが必要か？
+- [ ] カーネルステータスが正しく表示されるか（idle/busy）？
+
+#### 8.5.3 kernel_idリライトの実現可能性
+
+**実験方法:**
+1. プロキシでWebSocketリクエストのURLを書き換える
+2. WebSocketメッセージ内の`kernel_id`フィールドを調査
+3. レスポンスに含まれる`kernel_id`を逆変換
+
+**確認事項:**
+- [ ] WebSocketメッセージ内に`kernel_id`が含まれているか？
+- [ ] 含まれている場合、すべてのメッセージで書き換えが必要か？
+- [ ] レスポンスのJSON構造はどうなっているか？
+- [ ] 書き換え処理がリアルタイム通信に影響を与えないか？
+
+### 8.6 推奨アプローチ
+
+**段階的な実装戦略:**
+
+1. **Phase 1: セッション情報移行 + 自動再接続に期待（Option B + C）**
+   - まず最もシンプルな実装でプロトタイプを作成
+   - JupyterLabの自動再接続挙動を実験で確認
+   - 自動再接続が機能すれば、これで完了
+
+2. **Phase 2: 自動再接続が不十分な場合の改善**
+   - JupyterLabの自動再接続が機能しない場合：
+     - Option A（kernel_idリライト）の実装を検討
+     - またはプロキシからブラウザへのリロード指示を送る
+
+3. **Phase 3: 完全な透過性の実現（オプション）**
+   - kernel_idリライトを実装してページリロード不要を達成
+   - ユーザー体験を最大限に向上
+
+**次のステップ:**
+1. セクション8.5の実験を実施
+2. 結果をドキュメントに記録
+3. 実験結果に基づいて最適な実装オプションを選択
+4. プロトタイプの実装を開始
+
+---
+
+## 9. 今後の拡張可能性
 
 この設計は、将来的に以下の機能を追加できる柔軟性を持ちます：
 
