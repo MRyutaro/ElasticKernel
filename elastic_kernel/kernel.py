@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import logging
@@ -6,6 +5,7 @@ import os
 import time
 import traceback
 import urllib
+from datetime import datetime, timedelta, timezone
 
 from ipykernel.ipkernel import IPythonKernel
 
@@ -125,7 +125,9 @@ class ElasticKernel(IPythonKernel):
         # 1) 自分の kernel_id を connection_file から取得
         try:
             connection_file = self.session.config["IPKernelApp"]["connection_file"]
-            kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace("kernel-", "")
+            kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace(
+                "kernel-", ""
+            )
         except Exception:
             kernel_id = os.environ.get("KERNEL_ID", "default")
 
@@ -210,7 +212,9 @@ class ElasticKernel(IPythonKernel):
                 jupyter_notebook_name = "Untitled"
         else:
             # JPY_SESSION_NAMEが設定されていない場合（API経由での起動など）
-            root_dir, jupyter_notebook_name = self.__resolve_path_without_jpy_session_name()
+            root_dir, jupyter_notebook_name = (
+                self.__resolve_path_without_jpy_session_name()
+            )
 
         # フォルダの作成
         elastic_kernel_dir = os.path.join(root_dir, ".elastic_kernel")
