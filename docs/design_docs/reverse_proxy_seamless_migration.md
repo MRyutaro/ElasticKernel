@@ -47,13 +47,16 @@ ElasticKernelでは、checkpoint/restore時にユーザーがページをリロ�
 4. **プロキシの向き先を切り替え** → 8888から8889へ
 5. **旧コンテナを停止・削除**
 
-### 2.3 ユーザー体験
+### 2.3 ユーザー体験（目標）
 
 - ユーザーはブラウザでJupyterLabを開いたまま
 - checkpoint/restoreが裏で実行される
 - プロキシが自動的に新コンテナに接続先を切り替える
-- **ページリロード不要**
-- WebSocket接続は一時的に切断されるが、JupyterLabの再接続機能で自動復帰
+- **ページリロード不要（理想）**
+  - WebSocket接続は一時的に切断される
+  - セッション情報を移行することで、JupyterLabが自動的に新カーネルに再接続
+  - **ただし、JupyterLabの自動再接続挙動を検証する必要がある**（セクション8.5参照）
+- 最悪の場合でも、ページリロード1回で新カーネルに接続可能（現状より改善）
 
 ---
 
@@ -175,23 +178,44 @@ ElasticKernelでは、checkpoint/restore時にユーザーがページをリロ�
                           [checkpoint.pickle] ← 保存完了
 ```
 
-### 4.4 Step 3: 新コンテナでrestore
+### 4.4 Step 3: 新コンテナでrestore + セッション情報移行
 
 **処理:**
-1. run.shが新コンテナB (8889) に対してカーネル起動リクエスト送信
+1. run.shが旧コンテナA (8888) からセッション情報を取得
    ```bash
-   curl -X POST "http://localhost:8889/api/kernels" \
-        -H "Content-Type: application/json" \
-        -d '{"name":"elastic_kernel"}'
+   OLD_SESSIONS=$(curl -s "http://localhost:8888/api/sessions")
    ```
-2. ElasticKernelの`__init__()`が実行され、checkpoint.pickleをロード
-3. ElasticNotebookが変数を復元し、必要なセルを再計算
-4. カーネルが`idle`状態になるまで待機
+
+2. run.shが新コンテナB (8889) に対してカーネル起動リクエスト送信
+   ```bash
+   NEW_KERNEL_ID=$(curl -X POST "http://localhost:8889/api/kernels" \
+        -H "Content-Type: application/json" \
+        -d '{"name":"elastic_kernel"}' | jq -r '.id')
+   ```
+
+3. ElasticKernelの`__init__()`が実行され、checkpoint.pickleをロード
+
+4. ElasticNotebookが変数を復元し、必要なセルを再計算
+
+5. カーネルが`idle`状態になるまで待機
+
+6. 旧コンテナのセッション情報をもとに、新コンテナでセッションを作成
+   ```bash
+   # 各セッションについて繰り返し
+   curl -X POST "http://localhost:8889/api/sessions" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "path": "'"$NOTEBOOK_PATH"'",
+            "type": "notebook",
+            "kernel": {"id": "'"$NEW_KERNEL_ID"'", "name": "elastic_kernel"}
+        }'
+   ```
 
 **状態:**
 ```
 [ブラウザ] → [プロキシ] → [コンテナ A (8888)] ← checkpoint完了
                           [コンテナ B (8889)] ← カーネル起動、変数復元完了
+                                                  セッション情報移行完了
 ```
 
 ### 4.5 Step 4: プロキシの向き先を切り替え
@@ -381,9 +405,11 @@ Traefikのコンテナネイティブな動的設定機能を使用
   4. 新コンテナを起動（新ポート番号で）
   5. JupyterLabの起動を待機
   6. 旧コンテナにcheckpoint指示（カーネル停止 + 変数保存）
-  7. 新コンテナでrestore（カーネル起動 + 変数復元）
-  8. プロキシに切り替え指示（新ポート番号へ）
-  9. 旧コンテナを停止・削除
+  7. 旧コンテナからセッション情報を取得
+  8. 新コンテナでrestore（カーネル起動 + 変数復元）
+  9. 新コンテナでセッション情報を再作成
+  10. プロキシに切り替え指示（新ポート番号へ）
+  11. 旧コンテナを停止・削除
 ```
 
 ### 6.3 実装例（擬似コード）
@@ -427,21 +453,49 @@ restart() {
     # 6. 旧コンテナでcheckpoint
     checkpoint_container "localhost:$CURRENT_PORT"
 
-    # 7. 新コンテナでrestore
-    restore_container "localhost:$NEW_PORT"
+    # 7. 旧コンテナからセッション情報を取得
+    OLD_SESSIONS=$(curl -s "http://localhost:$CURRENT_PORT/api/sessions")
 
-    # 8. プロキシ切り替え
+    # 8. 新コンテナでrestore
+    NEW_KERNEL_ID=$(restore_container "localhost:$NEW_PORT")
+
+    # 9. 新コンテナでセッション情報を再作成
+    echo "$OLD_SESSIONS" | jq -c '.[]' | while read session; do
+        NOTEBOOK_PATH=$(echo "$session" | jq -r '.path')
+        curl -X POST "http://localhost:$NEW_PORT/api/sessions" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"path\": \"$NOTEBOOK_PATH\",
+                \"type\": \"notebook\",
+                \"kernel\": {\"id\": \"$NEW_KERNEL_ID\", \"name\": \"elastic_kernel\"}
+            }"
+    done
+
+    # 10. プロキシ切り替え
     curl -X POST "http://localhost:$PROXY_PORT/admin/switch" \
         -H "Content-Type: application/json" \
         -d "{\"target_port\": $NEW_PORT}"
 
     echo "Switched to port $NEW_PORT"
 
-    # 9. 旧コンテナ削除
+    # 11. 旧コンテナ削除
     sudo podman stop "$CONTAINER_NAME-$CURRENT_PORT"
     sudo podman rm "$CONTAINER_NAME-$CURRENT_PORT"
 
     echo "Migration complete!"
+}
+
+# restore_container関数は新しいkernel_idを返す
+restore_container() {
+    local jupyter_url=$1
+    local kernel_id=$(curl -X POST "$jupyter_url/api/kernels" \
+        -H "Content-Type: application/json" \
+        -d '{"name":"elastic_kernel"}' | jq -r '.id')
+
+    # カーネルがidleになるまで待機
+    wait_for_kernel_idle "$jupyter_url" "$kernel_id"
+
+    echo "$kernel_id"
 }
 ```
 
@@ -892,27 +946,35 @@ curl -X POST "http://localhost:8889/api/sessions" \
 
 ---
 
-## 9. まとめ
+## 10. まとめ
 
-### 9.1 解決される問題
+### 10.1 解決される問題
 
 - **ページリロードが不要に**: プロキシが自動的に新コンテナに接続先を切り替え
 - **ユーザー体験の向上**: checkpoint/restoreが裏で実行され、ユーザーは作業を継続可能
 - **シームレスな移行**: WebSocket接続は一時的に切断されるが、自動再接続により透過的
 
-### 9.2 実装の優先順位
+### 10.2 実装の優先順位
 
-1. **Phase 1**: カスタムプロキシの実装（Python/FastAPI）
-2. **Phase 2**: run.shへの統合（新しいrestartフロー）
-3. **Phase 3**: エラーハンドリングの強化
-4. **Phase 4**: モニタリング・ログ機能の追加
+1. **Phase 1**: セクション8.5の実験を実施してJupyterLabの挙動を確認
+2. **Phase 2**: カスタムプロキシの実装（Python/FastAPI）
+3. **Phase 3**: run.shへの統合（新しいrestartフロー）
+4. **Phase 4**: エラーハンドリングの強化
+5. **Phase 5**: モニタリング・ログ機能の追加
 
-### 9.3 次のステップ
+### 10.3 次のステップ
 
-1. カスタムプロキシのプロトタイプ実装
-2. run.shの新しいrestartフローの実装
-3. 統合テスト
-4. ドキュメント更新
+1. **JupyterLabの再接続挙動の検証**（セクション8.5.1）
+   - WebSocket切断時の挙動を観察
+   - `/api/sessions`の再取得タイミングを確認
+2. **簡易プロキシでの実験**（セクション8.5.2）
+   - ポート切り替え時の実際の挙動を確認
+   - ページリロードの必要性を検証
+3. **実装オプションの決定**
+   - 実験結果に基づいてOption A/B/Cを選択
+4. **プロトタイプの実装**
+   - 選択したオプションでプロキシを実装
+   - run.shへの統合
 
 ---
 
@@ -921,3 +983,4 @@ curl -X POST "http://localhost:8889/api/sessions" \
 - JupyterLab WebSocket再接続: https://github.com/jupyterlab/jupyterlab/pull/8432
 - FastAPI WebSocketプロキシ例: https://fastapi.tiangolo.com/advanced/websockets/
 - Blue-Green Deployment: https://martinfowler.com/bliki/BlueGreenDeployment.html
+- Jupyter Server API: https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html
