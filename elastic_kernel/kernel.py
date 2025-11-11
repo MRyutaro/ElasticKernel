@@ -62,9 +62,10 @@ class ElasticKernel(IPythonKernel):
         self.logger.info("===============================================")
 
         # ===========================================
-        # self.logger.debug(f"kwargs: {kwargs}")
-        # self.logger.debug(f"self.shell: {self.shell}")
-        # self.logger.info(f"{self.shell.execution_count=}")  # 実行回数
+        # デバッグ用
+        self.logger.debug(f"kwargs: {kwargs}")
+        self.logger.debug(f"self.shell: {self.shell}")
+        self.logger.info(f"{self.shell.execution_count=}")  # 実行回数
         # ===========================================
 
         # ElasticNotebookをロードする
