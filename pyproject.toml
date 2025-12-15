@@ -64,3 +64,12 @@ dev = [
     "mypy>=1.14.1",
     "twine>=6.1.0",
 ]
+
+[tool.uv.sources]
+# “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name     = "pytorch-cpu"
+url      = "https://download.pytorch.org/whl/cpu"
+explicit = true
