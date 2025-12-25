@@ -16,11 +16,8 @@ ElasticNotebookのインポート時間の削減を行った．
 
 ## インポート時間の測定
 ```
-time python -c "import elastic_notebook"
+time python -c "from elastic_notebook import ElasticNotebook"
 ```
-
-# 比較手法
-
 
 # 評価ログ
 
