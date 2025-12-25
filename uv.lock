@@ -1096,7 +1096,7 @@ wheels = [
 
 [[package]]
 name = "elastic-kernel"
-version = "0.0.21"
+version = "0.0.26"
 source = { editable = "." }
 dependencies = [
     { name = "dill" },
