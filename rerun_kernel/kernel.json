@@ -1,0 +1,5 @@
+{
+    "display_name": "Python 3 (RerunKernel)",
+    "language": "python",
+    "argv": ["python", "-m", "rerun_kernel.kernel", "-f", "{connection_file}"]
+}

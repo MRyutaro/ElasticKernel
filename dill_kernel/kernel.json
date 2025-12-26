@@ -1,0 +1,5 @@
+{
+    "display_name": "Python 3 (DillKernel)",
+    "language": "python",
+    "argv": ["python", "-m", "dill_kernel.kernel", "-f", "{connection_file}"]
+}
