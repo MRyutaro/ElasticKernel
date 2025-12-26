@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "elastic-kernel"
-version = "0.0.20"
+version = "0.0.27"
 description = "An IPython Kernel that automatically saves and restores Jupyter Notebook execution states."
 authors = [
     { name = "ryutarom", email = "m2002r1028@icloud.com" }
@@ -16,14 +16,8 @@ dependencies = [
     "dill",
     "ipykernel",
     "ipython",
-    "lightgbm",
-    "matplotlib",
     "networkx",
     "numpy",
-    "pandas",
-    "scipy",
-    "seaborn",
-    "torch",
     "xxhash",
     "jupyter_client",
     "jupyter",
@@ -51,15 +45,6 @@ Repository = "https://github.com/MRyutaro/ElasticKernel"
 Documentation = "https://github.com/MRyutaro/ElasticKernel"
 "Bug Tracker" = "https://github.com/MRyutaro/ElasticKernel/issues"
 
-[project.optional-dependencies]
-dev = [
-    "black",
-    "flake8",
-    "isort",
-    "mypy",
-    "bump2version",
-]
-
 [project.scripts]
 elastic-kernel = "elastic_kernel.command:main"
 ipykernel4exp = "ipykernel4exp.command:main"  # 実験用
@@ -70,6 +55,17 @@ where = ["."]
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
 "ipykernel4exp" = ["kernel.json", "kernel.py"]  # 実験用
+
+[dependency-groups]
+dev = [
+    "black>=24.8.0",
+    "build>=1.2.2.post1",
+    "bump-my-version>=1.2.4",
+    "flake8>=5.0.4",
+    "isort>=5.13.2",
+    "mypy>=1.14.1",
+    "twine>=6.1.0",
+]
 
 [tool.uv.sources]
 # “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得

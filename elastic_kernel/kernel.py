@@ -1,10 +1,11 @@
 import hashlib
+import json
 import logging
 import os
 import time
 import traceback
+import urllib
 from datetime import datetime, timedelta, timezone
-from logging.handlers import RotatingFileHandler
 
 from ipykernel.ipkernel import IPythonKernel
 
@@ -60,14 +61,11 @@ class ElasticKernel(IPythonKernel):
             self.logger.debug(f"  - {key}: {value}")
         self.logger.info("===============================================")
 
-        # コマンドライン引数を取得
         # ===========================================
-        # 開発時のみ．本番環境ではコメントアウトすること．
-        # env = os.environ
-        # self.logger.debug(f"Environment: {env}")
-        # self.logger.debug(f"Kernel Args: {sys.argv}")
-        # self.logger.debug(f"kwargs: {kwargs}")
-        # self.logger.debug(f"self.shell: {self.shell}")
+        # デバッグ用
+        self.logger.debug(f"kwargs: {kwargs}")
+        self.logger.debug(f"self.shell: {self.shell}")
+        self.logger.info(f"{self.shell.execution_count=}")  # 実行回数
         # ===========================================
 
         # ElasticNotebookをロードする
@@ -84,14 +82,20 @@ class ElasticKernel(IPythonKernel):
         if os.path.exists(self.checkpoint_file_path):
             self.logger.info("Checkpoint file exists. Loading checkpoint.")
             try:
-                start_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
+                    "%Y-%m-%dT%H:%M:%S.%f%z"
+                )
                 self.logger.debug(f"{self.shell.user_ns=}")
                 self.logger.info(f"Loading checkpoint started at: {start_time}")
 
                 self.elastic_notebook.load_checkpoint(self.checkpoint_file_path)
 
-                end_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
-                loading_time = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S.%f%z") - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
+                end_time = datetime.now(timezone(timedelta(hours=9))).strftime(
+                    "%Y-%m-%dT%H:%M:%S.%f%z"
+                )
+                loading_time = datetime.strptime(
+                    end_time, "%Y-%m-%dT%H:%M:%S.%f%z"
+                ) - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
                 self.logger.info(f"Loading checkpoint finished at: {end_time}")
                 self.logger.info(f"Total loading time: {loading_time}")
                 self.logger.debug(f"{self.shell.user_ns=}")
@@ -108,6 +112,82 @@ class ElasticKernel(IPythonKernel):
             self.logger.info(
                 "Checkpoint file does not exist. Skipping loading checkpoint."
             )
+
+    def __resolve_path_without_jpy_session_name(self):
+        """
+        JPY_SESSION_NAME が無いときに、/api/sessions から自カーネルに紐づくノートブックの path を推定し、
+        (root_dir, jupyter_notebook_name) を返す。
+        取得できなければ kernel_id ベースにフォールバック。
+        """
+        # 1) 自分の kernel_id を connection_file から取得
+        try:
+            connection_file = self.session.config["IPKernelApp"]["connection_file"]
+            kernel_id = os.path.splitext(os.path.basename(connection_file))[0].replace(
+                "kernel-", ""
+            )
+        except Exception:
+            kernel_id = os.environ.get("KERNEL_ID", "default")
+
+        self.logger.debug(f"kernel_id: {kernel_id}")
+        # 2) Jupyter Server の場所とトークン（必要なら）
+        base_url = (
+            os.environ.get("JUPYTER_SERVER_URL")
+            or os.environ.get("JUPYTER_BASE_URL")
+            or "http://127.0.0.1:8888"
+        )
+        token = os.environ.get("JUPYTER_TOKEN")  # token='' の環境なら未指定でOK
+
+        def _fetch_sessions():
+            url = base_url.rstrip("/") + "/api/sessions"
+            if token:
+                sep = "&" if "?" in url else "?"
+                url = f"{url}{sep}token={urllib.parse.quote(token)}"
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+
+        # 3) 自カーネルに紐づく notebook path を探す（作成直後に備え、少しだけリトライ）
+        nb_path = None
+        for _ in range(10):
+            try:
+                for s in _fetch_sessions():
+                    k = s.get("kernel") or {}
+                    if k.get("id") == kernel_id:
+                        nb_path = s.get("path") or (s.get("notebook") or {}).get("path")
+                        break
+                if nb_path:
+                    break
+            except Exception:
+                pass
+            time.sleep(0.2)
+
+        # 4) 見つかった path から root_dir と名前を決定（相対パスは cwd 基準で解決）
+        self.logger.debug(f"nb_path: {nb_path}")
+        if nb_path:
+            if os.path.isabs(nb_path):
+                root_dir = os.path.dirname(nb_path)
+                nb_full_path = nb_path
+            else:
+                root_dir = os.getcwd()
+                nb_full_path = os.path.join(root_dir, nb_path)
+
+            # inode が取れれば安定名、ダメならファイル名、さらにダメなら kernel_id
+            if os.path.exists(nb_full_path):
+                try:
+                    inode = os.stat(nb_full_path).st_ino
+                    name = hashlib.sha256(str(inode).encode()).hexdigest()[:16]
+                except Exception:
+                    name = os.path.splitext(os.path.basename(nb_full_path))[0]
+            else:
+                name = os.path.splitext(os.path.basename(nb_path))[0]
+        else:
+            # 5) どうしても取得できないときのフォールバック
+            root_dir = os.getcwd()
+            name = f"kernel_{kernel_id}"
+
+        self.logger.debug(f"root_dir: {root_dir}")
+        self.logger.debug(f"name: {name}")
+        return root_dir, name
 
     def __setup_file_path(self):
         """
@@ -128,7 +208,11 @@ class ElasticKernel(IPythonKernel):
                 # TODO: #15 セッションを閉じずにファイル名を変えたときの処理を考える
                 jupyter_notebook_name = "Untitled"
         else:
-            raise ValueError("JPY_SESSION_NAME environment variable is not set.")
+            # JPY_SESSION_NAMEが設定されていない場合（API経由での起動など）
+            # TODO: self.shell.user_ns['__session__']からノートブックパスを取得できないか？
+            root_dir, jupyter_notebook_name = (
+                self.__resolve_path_without_jpy_session_name()
+            )
 
         # フォルダの作成
         elastic_kernel_dir = os.path.join(root_dir, ".elastic_kernel")
@@ -157,7 +241,7 @@ class ElasticKernel(IPythonKernel):
         )
 
         # ローテーティングファイルハンドラー
-        rotating_file_handler = RotatingFileHandler(
+        rotating_file_handler = logging.handlers.RotatingFileHandler(
             self.log_file_path,
             maxBytes=5 * 1024 * 1024,
             backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
@@ -236,13 +320,19 @@ class ElasticKernel(IPythonKernel):
         カーネル終了時に呼び出されるメソッド
         """
         try:
-            start_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+            start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f%z"
+            )
             self.logger.info(f"Saving checkpoint started at: {start_time}")
 
             self.elastic_notebook.checkpoint(self.checkpoint_file_path)
 
-            end_time = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
-            saving_time = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S.%f%z") - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
+            end_time = datetime.now(timezone(timedelta(hours=9))).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f%z"
+            )
+            saving_time = datetime.strptime(
+                end_time, "%Y-%m-%dT%H:%M:%S.%f%z"
+            ) - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
             self.logger.info(f"Saving checkpoint finished at: {end_time}")
             self.logger.info(f"Total saving time: {saving_time}")
 

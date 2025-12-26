@@ -25,3 +25,6 @@ logs/
 
 # 環境変数
 .env
+
+.checkpoint*/
+.workspace/

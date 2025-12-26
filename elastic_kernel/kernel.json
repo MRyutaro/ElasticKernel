@@ -1,5 +1,5 @@
 {
-  "display_name": "Python 3 (Elastic)",
+  "display_name": "Python 3 (ElasticKernel)",
   "language": "python",
   "argv": ["python", "-m", "elastic_kernel.kernel", "-f", "{connection_file}"]
 }
