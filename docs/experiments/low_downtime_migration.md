@@ -13,9 +13,9 @@ ElasticKernelを用いることでダウンタイムを短くできているか�
 - runc: 1.3.4
 
 ## 比較
-- CRIU (ipykernel): メモリ使用量が増えるとダウンタイムが長くなるはず
-- Dill (DillKernel): メモリ使用量が増えるとダウンタイムが長くなるはず
 - Rerun (RerunKernel): 全て再実行．計算時間が長いとダウンタイムが伸びるはず．
+- Dill (DillKernel): メモリ使用量が増えるとダウンタイムが長くなるはず
+- CRIU (ipykernel): メモリ使用量が増えるとダウンタイムが長くなるはず
 - ElasticNotebook+ (ElasticKernel==0.0.20): JuyterKernelに組み込んだだけのもの．インポート時間が長い．
 - ElasticKernel (ElasticKernel==0.0.27): インポート最適化後
 
@@ -39,6 +39,57 @@ ElasticKernelを用いることでダウンタイムを短くできているか�
 
 ## 評価方法
 5つの手法×4つの対象×10試行=200
+
+### 手順
+1. コンテナを起動する
+2. 動かす
+3. コンテナを止める
+4. コンテナを削除する
+5. コンテナを起動する
+6. この間にユーザーがリロードしとく
+
+### 計測方法
+- E2Eの時間を測定する
+    - 始まり: 再起動指示を発行した時刻．date "+%Y-%m-%d %H:%M:%S"; <止めるコマンド>で表示された時刻
+    - 終わり: Jupyter KernelがConnecting to kernelが表示された時刻．podman logs <コンテナ名>で表示できる
+
+```
+# 起動&停止コマンド
+podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
+podman rm -f jlab-cr-rerun-kernel
+
+podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-dill-kernel jlab-cr-dill-kernel:latest
+podman rm -f jlab-cr-dill-kernel
+
+sudo podman run --runtime runc -d -p 8888:8888 --network host -v $(pwd)/.workspace:/app --cap-add=CHECKPOINT_RESTORE --cap-add=SYS_PTRACE --cap-add=SETPCAP --security-opt seccomp=unconfined --name jlab-cr-criu jlab-cr-criu:latest
+sudo podman rm -f jlab-cr-criu
+
+podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.21 jlab-cr-elastic-kernel-0.0.21:latest
+podman rm -f jlab-cr-elastic-kernel-0.0.21
+
+podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.27 jlab-cr-elastic-kernel-0.0.27:latest
+podman rm -f jlab-cr-elastic-kernel-0.0.27
+```
+
+```
+# ログ表示コマンド
+podman logs -f jlab-cr-rerun-kernel
+podman logs -f jlab-cr-dill-kernel
+sudo podman logs -f jlab-cr-criu
+podman logs -f jlab-cr-elastic-kernel-0.0.21
+podman logs -f jlab-cr-elastic-kernel-0.0.27
+```
+
+```
+# 停止コマンド
+date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-rerun-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
+date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-dill-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-dill-kernel jlab-cr-dill-kernel:latest
+date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-criu; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-criu jlab-cr-criu:latest
+date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-elastic-kernel-0.0.21; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.21 jlab-cr-elastic-kernel-0.0.21:latest
+date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-elastic-kernel-0.0.27; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.27 jlab-cr-elastic-kernel-0.0.27:latest
+```
+
+## メモ
 
 ### RerunKernel
 
@@ -70,7 +121,7 @@ sudo podman build --network host -f Dockerfile-CRIU -t jlab-cr-criu:latest .
 # 起動（チェックポイント用のオプション付き、--runtime runcを追加）
 sudo podman run --runtime runc -d -p 8888:8888 --network host -v $(pwd)/.workspace:/app --cap-add=CHECKPOINT_RESTORE --cap-add=SYS_PTRACE --cap-add=SETPCAP --security-opt seccomp=unconfined --name jlab-cr-criu jlab-cr-criu:latest
 # ディスクバッファをフラッシュして、未書き込みのノート破損を防ぐ
-sudo podman exec jlab-cr-criu sync
+# sudo podman exec jlab-cr-criu sync
 # チェックポイント（実行中のコンテナの状態を保存）
 # --tcp-established: 接続済みTCPソケットをチェックポイントするために必要
 sudo podman container checkpoint --tcp-established jlab-cr-criu --export=$(pwd)/.criu/checkpoint.tar.gz

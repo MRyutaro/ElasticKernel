@@ -16,7 +16,13 @@ COPY rerun_kernel/ ./rerun_kernel/
 # 依存関係をインストール（jupyter関連のみ、rerun_kernelは標準ライブラリのみ使用）
 RUN uv venv && \
     uv pip install ipykernel ipython jupyter_client jupyter numpy && \
-    PYTHONPATH=/tmp:$PYTHONPATH uv run python -m rerun_kernel.command install
+    PYTHONPATH=/tmp:$PYTHONPATH uv run python -m rerun_kernel.command install && \
+    uv run jupyter kernelspec remove python3 -f || true && \
+    rm -rf /root/.local/share/jupyter/kernels/python3 \
+        /tmp/.venv/share/jupyter/kernels/python3 \
+        /usr/local/share/jupyter/kernels/python3 \
+        /usr/share/jupyter/kernels/python3 \
+        /tmp/.venv/lib/python3.12/site-packages/ipykernel
 
 WORKDIR /app
 
