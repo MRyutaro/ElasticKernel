@@ -81,7 +81,7 @@ podman logs -f jlab-cr-elastic-kernel-0.0.27
 ```
 
 ```
-# 停止コマンド
+# 再起動コマンド
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-rerun-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-dill-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-dill-kernel jlab-cr-dill-kernel:latest
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-criu; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-criu jlab-cr-criu:latest

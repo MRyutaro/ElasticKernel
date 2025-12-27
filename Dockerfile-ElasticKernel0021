@@ -14,13 +14,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN uv venv && \
     uv pip install torch --index-url https://download.pytorch.org/whl/cpu && \
     uv pip install "elastic-kernel==0.0.21" && \
-    uv run elastic-kernel install && \
-    uv run jupyter kernelspec remove python3 -f || true && \
-    rm -rf /root/.local/share/jupyter/kernels/python3 \
-        /tmp/.venv/share/jupyter/kernels/python3 \
-        /usr/local/share/jupyter/kernels/python3 \
-        /usr/share/jupyter/kernels/python3 \
-        /tmp/.venv/lib/python3.12/site-packages/ipykernel
+    uv run elastic-kernel install
 
 WORKDIR /app
 
