@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "elastic-kernel"
-version = "0.0.21"
+version = "0.0.20"
 description = "An IPython Kernel that automatically saves and restores Jupyter Notebook execution states."
 authors = [
     { name = "ryutarom", email = "m2002r1028@icloud.com" }
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 dependencies = [
     "dill",
     "ipykernel",
@@ -36,8 +36,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -61,6 +59,17 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
+
+[dependency-groups]
+dev = [
+    "black>=24.8.0",
+    "build>=1.2.2.post1",
+    "bump-my-version>=1.2.4",
+    "flake8>=5.0.4",
+    "isort>=5.13.2",
+    "mypy>=1.14.1",
+    "twine>=6.1.0",
+]
 
 [tool.uv.sources]
 # “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得
