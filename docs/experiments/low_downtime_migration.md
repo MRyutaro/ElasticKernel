@@ -38,7 +38,7 @@ ElasticKernelを用いることでダウンタイムを短くできているか�
     - ElasticKernelが有利なはず
 
 ## 評価方法
-5つの手法×4つの対象×10試行=200
+5つの手法×4つの対象×5試行=100
 
 ### 手順
 1. コンテナを起動する
@@ -52,9 +52,27 @@ ElasticKernelを用いることでダウンタイムを短くできているか�
 - E2Eの時間を測定する
     - 始まり: 再起動指示を発行した時刻．date "+%Y-%m-%d %H:%M:%S"; <止めるコマンド>で表示された時刻
     - 終わり: Jupyter KernelがConnecting to kernelが表示された時刻．podman logs <コンテナ名>で表示できる
+- 手法1-001.ipynb, 手法1-002.ipynb, ..., 手法5-004.ipynbの順番で行う
+- これをとりあえず5周行う
 
+### 準備
+ビルド
 ```
-# 起動&停止コマンド
+podman build -f Dockerfile-RerunKernel -t jlab-cr-rerun-kernel:latest .
+
+podman build -f Dockerfile-DillKernel -t jlab-cr-dill-kernel:latest .
+
+sudo podman build --network host -f Dockerfile-CRIU -t jlab-cr-criu:latest .
+
+podman build -f Dockerfile-ElasticKernel0021 -t jlab-cr-elastic-kernel-0.0.21:latest .
+
+podman build -f Dockerfile-ElasticKernel0027 -t jlab-cr-elastic-kernel-0.0.27:latest .
+```
+
+### 手順
+
+起動&停止
+```
 podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
 podman rm -f jlab-cr-rerun-kernel
 
@@ -71,23 +89,57 @@ podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kern
 podman rm -f jlab-cr-elastic-kernel-0.0.27
 ```
 
+再起動
 ```
-# ログ表示コマンド
-podman logs -f jlab-cr-rerun-kernel
-podman logs -f jlab-cr-dill-kernel
-sudo podman logs -f jlab-cr-criu
-podman logs -f jlab-cr-elastic-kernel-0.0.21
-podman logs -f jlab-cr-elastic-kernel-0.0.27
-```
-
-```
-# 再起動コマンド
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-rerun-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
+
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-dill-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-dill-kernel jlab-cr-dill-kernel:latest
-date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-criu; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-criu jlab-cr-criu:latest
+
+date "+%Y-%m-%d %H:%M:%S"; sudo podman container checkpoint --tcp-established jlab-cr-criu --export=$(pwd)/.criu/checkpoint.tar.gz; sudo podman rm jlab-cr-criu; sudo podman container restore --import=$(pwd)/.criu/checkpoint.tar.gz --tcp-established --runtime runc
+
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-elastic-kernel-0.0.21; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.21 jlab-cr-elastic-kernel-0.0.21:latest
+
 date "+%Y-%m-%d %H:%M:%S"; podman rm -f jlab-cr-elastic-kernel-0.0.27; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.27 jlab-cr-elastic-kernel-0.0.27:latest
 ```
+
+ログ表示
+```
+podman logs --tail 10 jlab-cr-rerun-kernel
+
+podman logs --tail 10 jlab-cr-dill-kernel
+
+sudo podman logs --tail 10 jlab-cr-criu
+
+podman logs --tail 10 jlab-cr-elastic-kernel-0.0.21
+
+podman logs --tail 10 jlab-cr-elastic-kernel-0.0.27
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## メモ
 
