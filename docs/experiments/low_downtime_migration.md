@@ -34,7 +34,7 @@ ElasticKernelを用いることでダウンタイムを短くできているか�
     - 計算はほとんど行わない
     - CRIU/DillKernelの弱点（メモリシリアライズ時間）を測る
 - high memory, high compute
-    - CPUもメモリも両方使う．行列演算を行うプログラム．
+    - CPUもメモリも両方使う．行列演算を行うプログラム．大体15秒の計算時間．約1GBのメモリ使用量．
     - ElasticKernelが有利なはず
 
 ## 評価方法
