@@ -53,15 +53,6 @@ Repository = "https://github.com/MRyutaro/ElasticKernel"
 Documentation = "https://github.com/MRyutaro/ElasticKernel"
 "Bug Tracker" = "https://github.com/MRyutaro/ElasticKernel/issues"
 
-[project.optional-dependencies]
-dev = [
-    "black",
-    "flake8",
-    "isort",
-    "mypy",
-    "bump2version",
-]
-
 [project.scripts]
 elastic-kernel = "elastic_kernel.command:main"
 
@@ -70,3 +61,12 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
+
+[tool.uv.sources]
+# “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name     = "pytorch-cpu"
+url      = "https://download.pytorch.org/whl/cpu"
+explicit = true
