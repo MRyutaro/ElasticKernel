@@ -10,9 +10,10 @@ RUN apt-get update && apt-get install -y \
 # uvのセットアップ
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# 依存関係をインストール（PyPIからelastic-kernel==0.0.20をインストール）
+# 依存関係をインストール（PyPIからelastic-kernel==0.0.21をインストール）
 RUN uv venv && \
-    uv pip install elastic-kernel==0.0.20 && \
+    uv pip install torch --index-url https://download.pytorch.org/whl/cpu && \
+    uv pip install "elastic-kernel==0.0.21" && \
     uv run elastic-kernel install
 
 WORKDIR /app

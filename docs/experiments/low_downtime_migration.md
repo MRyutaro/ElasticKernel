@@ -41,7 +41,7 @@ podman build -f Dockerfile-RerunKernel -t rerun-kernel:latest .
 # 起動
 podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name rerun-kernel rerun-kernel:latest
 # 停止
-podman stop rerun-kernel && podman rm rerun-kernel
+podman rm -f rerun-kernel
 ```
 
 ### DillKernel
@@ -52,22 +52,22 @@ podman build -f Dockerfile-DillKernel -t dill-kernel:latest .
 # 起動
 podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name dill-kernel dill-kernel:latest
 # 停止
-podman stop dill-kernel && podman rm dill-kernel
+podman rm -f dill-kernel
 ```
 
 ### CRIU
 ```
 ```
 
-### ElasticKernel 0.0.20
+### ElasticKernel 0.0.21
 
 ```
 # ビルド
-podman build -f Dockerfile-ElasticKernel0020 -t elastic-kernel-0.0.20:latest .
+podman build -f Dockerfile-ElasticKernel0021 -t elastic-kernel-0.0.21:latest .
 # 起動
-podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name elastic-kernel-0.0.20 elastic-kernel-0.0.20:latest
+podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name elastic-kernel-0.0.21 elastic-kernel-0.0.21:latest
 # 停止
-podman stop elastic-kernel-0.0.20 && podman rm elastic-kernel-0.0.20
+podman rm -f elastic-kernel-0.0.21
 ```
 
 ### ElasticKernel 0.0.27
@@ -78,5 +78,5 @@ podman build -f Dockerfile-ElasticKernel0027 -t elastic-kernel-0.0.27:latest .
 # 起動
 podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name elastic-kernel-0.0.27 elastic-kernel-0.0.27:latest
 # 停止
-podman stop elastic-kernel-0.0.27 && podman rm elastic-kernel-0.0.27
+podman rm -f elastic-kernel-0.0.27
 ```
