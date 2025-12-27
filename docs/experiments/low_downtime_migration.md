@@ -16,20 +16,26 @@ ElasticKernelを用いることでダウンタイムを短くできているか�
 - CRIU (ipykernel): メモリ使用量が増えるとダウンタイムが長くなるはず
 - Dill (DillKernel): メモリ使用量が増えるとダウンタイムが長くなるはず
 - Rerun (RerunKernel): 全て再実行．計算時間が長いとダウンタイムが伸びるはず．
-- ElasticNotebook+(ElasticKernel==0.0.20): JuyterKernelに組み込んだだけのもの．インポート時間が長い．
-- ElasticKernel==0.0.27: インポート最適化後
+- ElasticNotebook+ (ElasticKernel==0.0.20): JuyterKernelに組み込んだだけのもの．インポート時間が長い．
+- ElasticKernel (ElasticKernel==0.0.27): インポート最適化後
 
 ## 評価に使うipynb
 メモリ使用量の大小，計算時間の大小
 
 - low memory, low compute
-    - 変数を定義するだけのipynb．hello = "world"
+    - 変数を定義するだけのipynb．`hello = "world"`
+    - ベースラインとして、どの手法でも速いはず
+    - ElasticNotebook+やElasticKernelのオーバーヘッドが目立つはず
 - low memory, high compute
-    - 
+    - CPUネックな計算を実行．`fibonacci(40)`で大体17秒の計算時間
+    - RerunKernelの弱点（再計算時間）を測る
 - high memory, low compute
-    - 変数を定義するだけのipynb．x = np.arrange(2**28)
+    - 大きな配列を定義するだけのipynb．`x = np.arange(2**27)` (約1GB)
+    - 計算はほとんど行わない
+    - CRIU/DillKernelの弱点（メモリシリアライズ時間）を測る
 - high memory, high compute
-    - 
+    - CPUもメモリも両方使う．行列演算を行うプログラム．
+    - ElasticKernelが有利なはず
 
 ## 評価方法
 5つの手法×4つの対象×10試行=200

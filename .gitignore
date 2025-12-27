@@ -3,7 +3,6 @@
 
 # Jupyter関連
 .ipynb_checkpoints/
-*.ipynb
 
 # サンプル
 sample/
@@ -27,5 +26,11 @@ logs/
 .env
 
 .checkpoint*/
-.workspace/
+
+.workspace/*
+!.workspace/001.ipynb
+!.workspace/002.ipynb
+!.workspace/003.ipynb
+!.workspace/004.ipynb
 .criu/
+.workspace/
