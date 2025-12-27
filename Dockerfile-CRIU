@@ -1,0 +1,27 @@
+FROM python:3.12-slim
+
+WORKDIR /tmp
+
+# システムライブラリをインストール
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# uvのセットアップ
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# 依存関係をインストール（dillとjupyter関連のみ）
+RUN uv venv && \
+    uv pip install jupyter numpy
+
+WORKDIR /app
+
+# パスを設定
+ENV PYTHONUNBUFFERED=1 \
+    JUPYTER_RUNTIME_DIR=/app/.jupyter_runtime \
+    JUPYTER_DATA_DIR=/app/.jupyter_data \
+    IPYTHONDIR=/app/.ipython \
+    PATH="/tmp/.venv/bin:$PATH" \
+    PYTHONPATH="/tmp:$PYTHONPATH"
+
+CMD ["jupyter", "lab", "--allow-root", "--ip=0.0.0.0", "--no-browser", "--ServerApp.token=", "--ServerApp.password="]

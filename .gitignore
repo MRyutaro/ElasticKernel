@@ -28,3 +28,4 @@ logs/
 
 .checkpoint*/
 .workspace/
+.criu/
