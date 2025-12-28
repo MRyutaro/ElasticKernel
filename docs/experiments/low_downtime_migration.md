@@ -91,15 +91,15 @@ podman rm -f jlab-cr-elastic-kernel-0.0.27
 
 再起動
 ```
-date "+%Y-%m-%d %H:%M:%S.%3N"; podman rm -f jlab-cr-rerun-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
+date "+%Y-%m-%d %H:%M:%S.%3N"; podman stop --time 30 jlab-cr-rerun-kernel; podman rm jlab-cr-rerun-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-rerun-kernel jlab-cr-rerun-kernel:latest
 
-date "+%Y-%m-%d %H:%M:%S.%3N"; podman rm -f jlab-cr-dill-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-dill-kernel jlab-cr-dill-kernel:latest
+date "+%Y-%m-%d %H:%M:%S.%3N"; podman stop --time 30 jlab-cr-dill-kernel; podman rm jlab-cr-dill-kernel; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-dill-kernel jlab-cr-dill-kernel:latest
 
-date "+%Y-%m-%d %H:%M:%S.%3N"; sudo podman container checkpoint --tcp-established jlab-cr-criu --export=$(pwd)/.criu/checkpoint.tar.gz; sudo podman rm jlab-cr-criu; sudo podman container restore --import=$(pwd)/.criu/checkpoint.tar.gz --tcp-established --runtime runc
+date "+%Y-%m-%d %H:%M:%S.%3N"; sudo podman container checkpoint --tcp-established jlab-cr-criu --export=$(pwd)/.criu/checkpoint.tar.gz; sudo podman stop --time 30 jlab-cr-criu; sudo podman rm jlab-cr-criu; sudo podman container restore --import=$(pwd)/.criu/checkpoint.tar.gz --tcp-established --runtime runc
 
-date "+%Y-%m-%d %H:%M:%S.%3N"; podman rm -f jlab-cr-elastic-kernel-0.0.21; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.21 jlab-cr-elastic-kernel-0.0.21:latest
+date "+%Y-%m-%d %H:%M:%S.%3N"; podman stop --time 30 jlab-cr-elastic-kernel-0.0.21; podman rm jlab-cr-elastic-kernel-0.0.21; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.21 jlab-cr-elastic-kernel-0.0.21:latest
 
-date "+%Y-%m-%d %H:%M:%S.%3N"; podman rm -f jlab-cr-elastic-kernel-0.0.27; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.27 jlab-cr-elastic-kernel-0.0.27:latest
+date "+%Y-%m-%d %H:%M:%S.%3N"; podman stop --time 30 jlab-cr-elastic-kernel-0.0.27; podman rm jlab-cr-elastic-kernel-0.0.27; podman run -d -p 8888:8888 -v $(pwd)/.workspace:/app --name jlab-cr-elastic-kernel-0.0.27 jlab-cr-elastic-kernel-0.0.27:latest
 ```
 
 ログ表示
