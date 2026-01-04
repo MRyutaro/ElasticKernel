@@ -33,6 +33,8 @@ time python -c "from elastic_notebook import ElasticNotebook"
 2.954
 2.997
 3.032
+2.994±0.027[s]
+変動係数 (CV): 0.89%
 
 ```
 (tmp) matsumoto@neko:~/tmp$ uv pip show elastic-kernel
@@ -95,8 +97,6 @@ sys     0m0.306s
 ```
 
 ## ElasticKernel 0.0.27
-平均: 0.6855
-標準偏差: 0.019189841
 
 0.731
 0.668
@@ -108,6 +108,9 @@ sys     0m0.306s
 0.668
 0.679
 0.686
+
+0.6855±0.020[s]
+変動係数 (CV): 2.95%
 
 ```
 (elastic-kernel) matsumoto@neko:~/ElasticKernel$ python -c "from elastic_notebook import __version__; print(__version__)"
