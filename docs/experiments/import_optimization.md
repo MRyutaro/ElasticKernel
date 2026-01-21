@@ -263,3 +263,64 @@ real    0m1.786s
 user    0m2.124s
 sys     0m0.133s
 ```
+
+
+# 評価ログ3
+積み立て棒グラフにしてそれぞれのライブラリのインポート時間を表示したい
+また，コンテナ再起動にかかる全ての時間の積み上げ棒グラフも表示したい
+→これはとりあえず後で．今はElasticKernelのインポートのみに着目．
+
+## ElasticKernel 0.0.21
+```
+(elastic-kernel) matsumoto@neko:~/ElasticKernel$ uv pip uninstall elastic-kernel
+Uninstalled 1 package in 28ms
+ - elastic-kernel==0.0.20 (from file:///home/matsumoto/ElasticKernel)
+(elastic-kernel) matsumoto@neko:~/ElasticKernel$ uv pip install elastic-kernel==0.0.21
+Resolved 119 packages in 3.62s
+Prepared 1 package in 476ms
+Installed 1 package in 13ms
+ + elastic-kernel==0.0.21
+(elastic-kernel) matsumoto@neko:~/ElasticKernel$ uv pip show elastic-kernel
+Name: elastic-kernel
+Version: 0.0.21
+Location: /home/matsumoto/ElasticKernel/.venv/lib/python3.12/site-packages
+Requires: dill, ipykernel, ipython, jupyter, jupyter-client, lightgbm, matplotlib, networkx, numpy, pandas, scipy, seaborn, torch, xxhash
+Required-by:
+```
+
+```
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0021_1.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0021_2.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0021_3.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0021_4.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0021_5.log
+```
+
+## ElasticKernel 0.0.27
+```
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ uv pip uninstall elastic-kernel
+Using Python 3.12.3 environment at: /home/matsumoto/ElasticKernel/.venv
+Uninstalled 1 package in 5ms
+ - elastic-kernel==0.0.21
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ uv pip install elastic-kernel==0.0.27
+Using Python 3.12.3 environment at: /home/matsumoto/ElasticKernel/.venv
+Resolved 102 packages in 425ms
+Prepared 1 package in 173ms
+Installed 1 package in 3ms
+ + elastic-kernel==0.0.27
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ uv pip show elastic-kernel
+Using Python 3.12.3 environment at: /home/matsumoto/ElasticKernel/.venv
+Name: elastic-kernel
+Version: 0.0.27
+Location: /home/matsumoto/ElasticKernel/.venv/lib/python3.12/site-packages
+Requires: dill, ipykernel, ipython, jupyter, jupyter-client, networkx, numpy, xxhash
+Required-by:
+```
+
+```
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0027_1.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0027_2.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0027_3.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0027_4.log
+(elastic-kernel) matsumoto@neko:~/ElasticKernel/docs/experiments/import_optimization$ python -X importtime -c "from elastic_notebook import ElasticNotebook" 2> 0027_5.log
+```
