@@ -1,3 +1,6 @@
+# This file has been modified from the original ElasticNotebook.
+# Original: https://github.com/illinoisdata/ElasticNotebook
+
 import logging
 import time
 from typing import Dict

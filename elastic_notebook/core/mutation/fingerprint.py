@@ -1,3 +1,6 @@
+# This file has been modified from the original ElasticNotebook.
+# Original: https://github.com/illinoisdata/ElasticNotebook
+
 import time
 from collections.abc import Iterable
 from types import FunctionType

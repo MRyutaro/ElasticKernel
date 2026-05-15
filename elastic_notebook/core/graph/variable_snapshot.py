@@ -1,3 +1,7 @@
+# This file has been modified from the original ElasticNotebook.
+# Original: https://github.com/illinoisdata/ElasticNotebook
+
+
 class VariableSnapshot:
     """
     A variable snapshot in the dependency graph corresponds to a version of a variable.

@@ -48,3 +48,13 @@ Available kernels:
 ## 開発者向け資料
 
 [ここ](/docs/developers.md)を参考にしてください．
+
+## Acknowledgments
+
+This project includes code from [ElasticNotebook](https://github.com/illinoisdata/ElasticNotebook),
+developed at the University of Illinois.
+ElasticNotebook is licensed under the Apache License 2.0.
+
+> Zhaoheng Li, Pranav Gor, Rahul Prabhu, Hui Yu, Yuzhou Mao, Yongjoo Park.
+> "ElasticNotebook: Enabling Live Migration for Computational Notebooks."
+> Proceedings of the VLDB Endowment, Vol. 17, No. 2, pp. 119-133, 2023.

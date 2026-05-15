@@ -1,3 +1,6 @@
+# This file has been modified from the original ElasticNotebook.
+# Original: https://github.com/illinoisdata/ElasticNotebook
+
 import networkx as nx
 import numpy as np
 from networkx.algorithms.flow import shortest_augmenting_path

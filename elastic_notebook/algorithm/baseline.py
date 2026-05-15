@@ -1,3 +1,6 @@
+# This file has been modified from the original ElasticNotebook.
+# Original: https://github.com/illinoisdata/ElasticNotebook
+
 import numpy as np
 
 from elastic_notebook.algorithm.selector import Selector
