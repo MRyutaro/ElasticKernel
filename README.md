@@ -41,6 +41,10 @@ Available kernels:
 
 4. JupyterLabを起動する
 
+```
+$ jupyter lab --ip=0.0.0.0
+```
+
 5. ブラウザからJupyterLabにアクセスする
 
 6. Python 3 (Elastic)のカーネルを選択する
