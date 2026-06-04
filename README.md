@@ -23,7 +23,7 @@ docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
 
 1. ライブラリをインストールする
 ```sh
-$ uv pip install elastic-kernel
+$ pip install elastic-kernel
 ```
 
 2. カーネルをインストールする
