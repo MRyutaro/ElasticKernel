@@ -356,6 +356,18 @@ class ElasticNotebook:
             ces_to_recompute,
         )
 
+        # 復元した変数のフィンガープリントを再構築する。
+        # 復元直後は fingerprint_dict が空であり、マジックコマンド（%whos 等）は
+        # record_event をスキップするため、それのみを実行してから checkpoint() すると
+        # fingerprint_dict に変数が存在せず KeyError になる（issue #26）。
+        # ここで復元済み変数のフィンガープリントを先に構築しておくことで防ぐ。
+        self.fingerprint_dict = {}
+        for var in self.dependency_graph.variable_snapshots.keys():
+            if var in self.shell.user_ns:
+                self.fingerprint_dict[var] = construct_fingerprint(
+                    self.shell.user_ns[var], self.profile_dict
+                )
+
         # 読み込んだメタデータから、マイグレートされた変数と再計算される変数を取得
         adapter = FilesystemAdapter()
         metadata = adapter.read_all(Path(filename))
