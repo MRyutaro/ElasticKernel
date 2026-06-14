@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.31](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.30...v0.0.31) (2026-06-14)
+
+
+### Documentation
+
+* fix misleading min-cut comment in optimizer_exact ([d710be4](https://github.com/MRyutaro/ElasticKernel/commit/d710be45fe9a4df208eea4dbfd668107d7ee8291))
+* fix misleading min-cut comment in optimizer_exact ([b11662c](https://github.com/MRyutaro/ElasticKernel/commit/b11662c4555003ed321ce05b5e8c12605fdd91d1))
+
 ## [0.0.30](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.29...v0.0.30) (2026-06-14)
 
 
