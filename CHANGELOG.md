@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.32](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.31...v0.0.32) (2026-06-14)
+
+
+### Documentation
+
+* fix min-cut comment and add worktree/PR guidance to CLAUDE.md ([cae7203](https://github.com/MRyutaro/ElasticKernel/commit/cae72030015daa45ebb2728e2bbe5bc99a315f74))
+
 ## [0.0.31](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.30...v0.0.31) (2026-06-14)
 
 
