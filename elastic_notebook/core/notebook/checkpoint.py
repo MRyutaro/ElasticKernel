@@ -82,9 +82,16 @@ def checkpoint(
     overlapping_vss = []
     for active_vs1 in active_vss:
         for active_vs2 in active_vss:
-            if active_vs1 != active_vs2 and fingerprint_dict[active_vs1.name][
-                1
-            ].intersection(fingerprint_dict[active_vs2.name][1]):
+            # Guard against a missing fingerprint entry (mirrors the `in` check used
+            # during size profiling above) to avoid a KeyError. (D-12)
+            if (
+                active_vs1 != active_vs2
+                and active_vs1.name in fingerprint_dict
+                and active_vs2.name in fingerprint_dict
+                and fingerprint_dict[active_vs1.name][1].intersection(
+                    fingerprint_dict[active_vs2.name][1]
+                )
+            ):
                 overlapping_vss.append((active_vs1, active_vs2))
 
     profile_end = time.time()
