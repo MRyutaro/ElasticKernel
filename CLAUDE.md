@@ -50,14 +50,30 @@ uv run flake8
 uv run mypy
 ```
 
-### バージョン管理
+### バージョン管理・リリース（PyPI / GHCR への公開）
+
+バージョン管理は **`bump-my-version`** を使用する（設定は `.bumpversion.toml`）。`bump-my-version bump` を実行すると、`pyproject.toml` の `version` 更新・コミット・`v{new_version}` タグ付けが**自動で行われる**。その後タグ（`v*.*.*`）を push すると、2つの CI ワークフローが発火して公開する: `publish-to-pypi.yml` → PyPI、`docker-publish.yml` → GHCR（Dockerイメージ）。
 
 ```sh
-# バージョンのバンプ（bump2versionを使用）
-bump2version patch  # 0.0.20 -> 0.0.21
-bump2version minor  # 0.0.20 -> 0.1.0
-bump2version major  # 0.0.20 -> 1.0.0
+# 初回のみ
+uv pip install bump-my-version
+
+# バージョンを上げる（いずれか1つ）
+bump-my-version bump patch  # 0.0.27 -> 0.0.28（後方互換のバグ修正・内部改善）
+bump-my-version bump minor  # 0.0.27 -> 0.1.0（後方互換の機能追加）
+bump-my-version bump major  # 0.0.27 -> 1.0.0（後方互換を壊す変更）
+
+# コミットとタグの両方を push（これで CI が公開を実行する）
+git push --follow-tags
 ```
+
+**いつバージョンを上げるか（適切なタイミング）:**
+- 公開物（PyPI パッケージ / Docker イメージ）に反映したいユーザー向けの変更が main にマージされたとき。
+- 原則 **semver** に従う: バグ修正・リファクタ・内部改善のみ → `patch` / 後方互換の新機能 → `minor` / 公開API・チェックポイントファイル形式・kernelspec 等の互換性を壊す変更 → `major`。
+- ドキュメントのみ・CI設定のみ・テスト追加のみの変更ではバンプ**しない**（公開物が変わらないため）。
+- **バンプは原則 main がクリーンな状態で行う**（`.bumpversion.toml` は `allow_dirty = false`）。リファクタリング作業中の中間コミットでは上げず、一連の変更が完了してから1回上げる。
+
+> 手動公開（CIを使わない方法）は `docs/DEVELOPERS.md` を参照。
 
 ## アーキテクチャ
 

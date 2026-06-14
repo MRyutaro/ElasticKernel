@@ -12,6 +12,12 @@
 
 以下は人間の回答が必要な質問である。**回答がない項目に関連する変更は実装せず、Phase 6（提案のみ）に留めること。** 回答済みの場合はその指示に従う。
 
+> **【回答済み 2026-06-14】** Q1〜Q4 すべて回答を得た。各項目末尾の「✅ 回答」を参照。要約:
+> - **Q1**: 死コードは**全削除してよい**（動作確認が条件）。`set_migration_speed`/`set_optimizer` と `OptimizerType`/`baseline.py` も削除対象。ただし `selector.py` の `Selector` 基底クラスは `OptimizerExact` の親なので残す。削除後に importスモーク・全テスト・`uv build` が通ることを確認すること。→ **D-4 実装可、D-5 は削除で発生経路が消えるためデフォルト経路の不変確認のみに簡略化**。
+> - **Q2**: CI の自動整形運用は**維持**（check-only にしない）。`format-python-code.yml` の bot 自動 commit & push はそのまま。ただし isort/black の設定衝突は `[tool.isort] profile = "black"` 等の**設定追加で解消**する（ワークフローの push 挙動は変えない）。→ **D-3 の設定追加は実施、CI ワークフロー自体は変更しない**。
+> - **Q3**: **成功したセルのみ記録**するよう変更する（現行の「成否問わず記録」から変更）。`do_execute` で `result["status"] == "ok"` を見て分岐。理由: 常に失敗するセルが復元のたびに再実行される問題を回避。一時的失敗のケースも「変数が追跡対象外になるだけ（無害）」に倒れる。→ **D-8 後半を実装可（Phase 4、テスト付き）**。
+> - **Q4**: restart=True でもチェックポイントを保存する挙動は**意図通り**。変更しない（確認のみ）。
+
 ### Q1. 死コード候補の削除可否（公開PyPIパッケージのAPI表面に関わる）
 本パッケージは PyPI に `elastic-kernel` として公開されており（`pyproject.toml:6`、`.github/workflows/publish-to-pypi.yml`）、外部スクリプト（研究実験用コードなど）が import している可能性がコードからは否定できない。以下はリポジトリ内では完全に未使用だが、削除してよいか:
 
@@ -23,20 +29,28 @@
 
 **推奨**: 実験ノート等で使っている可能性があるのは `set_optimizer` 系のみ。それ以外は削除して問題ない可能性が高いが、判断は人間に委ねる。
 
+**✅ 回答**: 全部削除してよい（動作すれば）。`set_migration_speed` / `set_optimizer` / `OptimizerType` / `baseline.py` も削除対象に含む。ただし `selector.py` の `Selector` 基底クラスは `OptimizerExact` の親なので残す。削除後に importスモーク・全テスト・`uv build` が通ることを確認し、1つでも壊れたら戻して報告すること。
+
 ### Q2. CI の自動フォーマットを check-only に変えてよいか
 `.github/workflows/format-python-code.yml` は main への push / PR のたびに素の `isort .` + `black .` を実行し、**bot が main に直接 commit & push する**。現状ローカルに isort/flake8 の設定がないため、isort のデフォルト挙動と black が衝突し、`uv run isort --check-only` が5ファイルで失敗する状態になっている（実測）。CI を「フォーマット崩れがあれば fail させるだけ」に変更してよいか。
 
 **推奨**: check-only に変更し、自動 push をやめる（main の履歴汚染・レース・PRブランチへの push 失敗リスクを除去）。
+
+**✅ 回答**: check-only にはしない。CI による自動整形 & push 運用を維持する（手動整形は面倒なため）。`format-python-code.yml` 自体は変更しない。ただし isort/black の設定衝突は `[tool.isort] profile = "black"` 等の設定追加で解消し、自動整形が安定するようにする。
 
 ### Q3. エラーになったセルも依存グラフに記録される現行挙動は意図か
 `elastic_kernel/kernel.py:302-311` は `super().do_execute()` の結果（成功/失敗）を見ずに `record_event()` を呼ぶため、例外で失敗したセルも依存グラフに「実行されたセル」として記録され、復元時の再計算対象になり得る。これが意図した挙動か、成功時のみ記録すべきか。
 
 **推奨**: 仕様判断が必要。回答があるまで現行挙動を変えない。
 
+**✅ 回答**: 成功したセルのみ記録するよう変更する。`do_execute` で `super().do_execute()` の戻り値 `result["status"] == "ok"` を見て、成功時のみ `record_event` を呼ぶ。理由: 常に失敗するセルが復元のたびに再実行される問題を回避するため。一時的に失敗したセルは「その変数が追跡対象外になる（復元時に存在しないだけ）」という無害な挙動に倒れる。実装は Phase 4 でテスト付きで行う（D-8 後半）。
+
 ### Q4. `do_shutdown(restart=True)`（カーネル再起動）でもチェックポイントを保存する現行挙動は意図か
 `elastic_kernel/kernel.py:318-356` は `restart` フラグを無視して常に checkpoint を保存する。再起動時に保存→直後の `__init__` で復元、という動きになる（これが意図的な「再起動しても状態が残る」体験の可能性が高い）。変更しないが、意図の確認だけしたい。
 
 **推奨**: 現行挙動を維持（確認のみ）。
+
+**✅ 回答**: 意図通り。restart=True でもチェックポイントを保存する挙動を維持する（変更しない）。
 
 ---
 
