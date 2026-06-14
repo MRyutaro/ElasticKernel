@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.30](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.29...v0.0.30) (2026-06-14)
+
+
+### Documentation
+
+* use user-attachments URLs for inline demo video playback ([08279a0](https://github.com/MRyutaro/ElasticKernel/commit/08279a05cfeae4e2fa22bb31f36fbbc38dfb3690))
+* use user-attachments URLs for inline demo video playback ([dc9ad14](https://github.com/MRyutaro/ElasticKernel/commit/dc9ad14eaf007225ee6e02e23a67e20f4709393a))
+
 ## [0.0.29](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.28...v0.0.29) (2026-06-14)
 
 
