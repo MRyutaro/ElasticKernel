@@ -3,6 +3,7 @@
 
 import os
 import pickle
+import shutil
 import sys
 import time
 
@@ -19,7 +20,8 @@ def profile_migration_speed(dirname: str, alpha=1) -> float:
     filecount = 1
     max_time = 0.8
     testing_dir = os.path.join(dirname, "measure_speed")
-    os.system("rm -rf {} && mkdir {}".format(testing_dir, testing_dir))
+    shutil.rmtree(testing_dir, ignore_errors=True)
+    os.makedirs(testing_dir)
     total_bytes = 0
 
     start_time = time.time()
@@ -58,7 +60,7 @@ def profile_migration_speed(dirname: str, alpha=1) -> float:
         if time.time() - start_time > max_time:
             break
 
-    os.system("rm -rf {}".format(testing_dir))
+    shutil.rmtree(testing_dir, ignore_errors=True)
 
     migration_speed_bps = total_bytes / (total_read_time + total_write_time * alpha)
 
