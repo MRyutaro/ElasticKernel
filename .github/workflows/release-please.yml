@@ -1,0 +1,28 @@
+name: release-please
+
+# main へのマージ内容（Conventional Commits）からバージョンを判定し、
+# CHANGELOG とバージョン更新をまとめた「リリース PR」を自動で作成・更新する。
+# その PR をマージすると v{version} タグと GitHub Release が作られ、
+# 既存の publish-to-pypi.yml / docker-publish.yml（タグ起動）が発火して公開される。
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # GITHUB_TOKEN で作ったタグは他ワークフローを起動できない（GitHub の仕様）。
+          # 公開ワークフロー（PyPI / GHCR）を自動発火させるには PAT または GitHub App
+          # トークンを RELEASE_PLEASE_TOKEN に設定する。未設定でもリリース PR 作成・
+          # タグ付けは動くが、その場合は公開がトリガーされない。
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
