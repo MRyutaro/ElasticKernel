@@ -53,9 +53,9 @@ class ElasticNotebook:
         self.log_file_path = os.path.join(log_file_dir, "ElasticNotebook.log")
         self.logger: logging.Logger
         self.__setup_logger()
-        self.logger.info(f"===============================================")
+        self.logger.info("===============================================")
         self.logger.info("ElasticNotebookを初期化しました")
-        self.logger.info(f"===============================================")
+        self.logger.info("===============================================")
 
         self.shell = shell
 

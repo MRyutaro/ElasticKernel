@@ -1,0 +1,8 @@
+[flake8]
+max-line-length = 88
+# E203/E731: black 互換のため無視。
+# E501: 行長は black に委ねる。black が折り返さない長い文字列・コメント・ログ
+#       メッセージ（行長超過の大半がこれ）まで flake8 で報告すると、production
+#       コードの無関係な整形やログ文言の改変が必要になるため除外する。
+extend-ignore = E203,E731,E501
+exclude = build,.venv,dist,.git,__pycache__
