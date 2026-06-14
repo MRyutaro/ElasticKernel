@@ -51,6 +51,9 @@ elastic-kernel = "elastic_kernel.command:main"
 [tool.setuptools.packages.find]
 where = ["."]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]
 
@@ -62,6 +65,7 @@ dev = [
     "flake8>=5.0.4",
     "isort>=5.13.2",
     "mypy>=1.14.1",
+    "pytest>=8.3.5",
     "twine>=6.1.0",
 ]
 
