@@ -55,7 +55,7 @@ docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
 
 ## 開発者向け資料
 
-[ここ](/docs/developers.md)を参考にしてください．
+[ここ](/docs/DEVELOPERS.md)を参考にしてください．
 
 ## 発表論文 (Publication)
 
