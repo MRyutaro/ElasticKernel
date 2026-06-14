@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.30](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.29...v0.0.30) (2026-06-14)
+
+
+### Documentation
+
+* sync Japanese README video URLs and document README conventions ([7b62afd](https://github.com/MRyutaro/ElasticKernel/commit/7b62afd47f50cf1634df9473b3bfbb84b7703ff0))
+* use user-attachments URLs for inline video playback in README ([5a7ff3d](https://github.com/MRyutaro/ElasticKernel/commit/5a7ff3db555a18d544c4977945c9735165951ce1))
+
 ## [0.0.29](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.28...v0.0.29) (2026-06-14)
 
 
