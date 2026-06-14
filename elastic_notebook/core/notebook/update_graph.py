@@ -16,7 +16,7 @@ def update_graph(
     """
     Updates the graph according to the newly executed cell and its input and output variables.
     Args:
-         cell (str): Raw cell cell.
+         cell (str): The raw cell source code.
          cell_runtime (float): Cell runtime.
          start_time (time): Time of start of cell execution. Note that this is different from when the cell was
              queued.

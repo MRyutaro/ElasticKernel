@@ -23,7 +23,7 @@ class CellExecution:
         Create an operation event from cell execution metrics.
         Args:
             cell_num (int): The nth cell execution of the current session.
-            cell (str): Raw cell cell.
+            cell (str): The raw cell source code.
             cell_runtime (float): Cell runtime.
             start_time (time): Time of start of cell execution. Note that this is different from when the cell was
                 queued.
