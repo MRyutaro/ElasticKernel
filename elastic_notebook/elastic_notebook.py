@@ -49,10 +49,10 @@ class ElasticNotebook:
         self.selector = OptimizerExact(migration_speed_bps=self.migration_speed_bps)
 
         # Dictionary of object fingerprints. For detecting modified references.
-        self.fingerprint_dict = {}
+        self.fingerprint_dict: dict = {}
 
         # Set of user-declared functions.
-        self.udfs = set()
+        self.udfs: set = set()
 
         # Flag if migration speed has been manually set. In this case, skip profiling of migration speed at checkpoint
         # time.
@@ -70,8 +70,8 @@ class ElasticNotebook:
         self.profile_dict = {"idgraph": 0, "representation": 0}
 
         # マイグレーションと再計算の変数リスト
-        self._vss_to_migrate = []
-        self._vss_to_recompute = []
+        self._vss_to_migrate: list = []
+        self._vss_to_recompute: list = []
 
     @property
     def vss_to_migrate(self):

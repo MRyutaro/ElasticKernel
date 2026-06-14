@@ -2,7 +2,6 @@
 # Original: https://github.com/illinoisdata/ElasticNotebook
 
 from collections import defaultdict
-from typing import List
 
 from elastic_notebook.core.graph.cell_execution import CellExecution
 from elastic_notebook.core.graph.variable_snapshot import VariableSnapshot
@@ -48,7 +47,7 @@ class DependencyGraph:
         return vs
 
     def add_cell_execution(
-        self, cell, cell_runtime: float, start_time: float, src_vss: List, dst_vss: List
+        self, cell, cell_runtime: float, start_time: float, src_vss: set, dst_vss: set
     ):
         """
         Create a cell execution from captured metrics.

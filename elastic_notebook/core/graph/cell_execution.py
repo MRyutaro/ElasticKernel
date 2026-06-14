@@ -5,9 +5,6 @@
 #
 # This file has been modified from the original ElasticNotebook.
 # Original: https://github.com/illinoisdata/ElasticNotebook
-from typing import List
-
-
 class CellExecution:
     """
     A cell execution (object) corresponds to a cell execution (action, i.e. press play) in the notebook session.
@@ -19,8 +16,8 @@ class CellExecution:
         cell: str,
         cell_runtime: float,
         start_time: float,
-        src_vss: List,
-        dst_vss: List,
+        src_vss: set,
+        dst_vss: set,
     ):
         """
         Create an operation event from cell execution metrics.

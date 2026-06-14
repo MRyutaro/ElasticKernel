@@ -18,7 +18,11 @@ class Selector:
         self.overlapping_vss = None
         self.migration_speed_bps = migration_speed_bps
 
-    def select_vss(self, notebook_name=None, optimizer_name=None) -> set:
+        # CEs required to recompute a variable last modified by a given CE.
+        # Declared on the base so callers (e.g. checkpoint()) can rely on it.
+        self.recomputation_ces: dict = {}
+
+    def select_vss(self, notebook_name=None, optimizer_name=None) -> tuple:
         """
         Classes that inherit from the `Selector` class (such as `OptimizerExact`) should
         override `select_vss`.

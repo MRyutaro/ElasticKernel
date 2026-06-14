@@ -92,7 +92,7 @@ def find_input_vars(
     function_defs = v1.functiondefs
 
     # Recurse into accessed UDFs.
-    udf_calls = deque()
+    udf_calls: deque = deque()
     udf_calls_visited = set()
 
     for udf in v1.udfcalls:
