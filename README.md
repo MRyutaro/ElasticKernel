@@ -3,6 +3,8 @@
 ElasticKernel: An IPython Kernel that automatically saves and restores Jupyter Notebook execution states.
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/elastic-kernel)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/elastic-kernel)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=weekly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fweek)](https://pepy.tech/projects/elastic-kernel)
 
 ## 使用方法
 
