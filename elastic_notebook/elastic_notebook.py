@@ -8,6 +8,7 @@ import os
 import time
 import types
 from os.path import dirname
+from typing import Optional
 
 from IPython.core.interactiveshell import InteractiveShell
 
@@ -47,6 +48,11 @@ class ElasticNotebook:
         self.migration_speed_bps = 100000
         self.alpha = 1
         self.selector = OptimizerExact(migration_speed_bps=self.migration_speed_bps)
+
+        # Cached profiled migration speed. Disk throughput is effectively constant within a
+        # session, so we profile only once and reuse the result on subsequent checkpoints to
+        # avoid adding measurement overhead to every checkpoint (issue #21).
+        self.profiled_migration_speed_bps: Optional[float] = None
 
         # Dictionary of object fingerprints. For detecting modified references.
         self.fingerprint_dict: dict = {}
@@ -241,11 +247,13 @@ class ElasticNotebook:
     def checkpoint(self, filename):
         self.logger.info("チェックポイントの保存を開始します")
 
-        # Profile the migration speed to filename.
+        # Profile the migration speed to filename (only once per session; see __init__).
         if not self.manual_migration_speed:
-            self.migration_speed_bps = profile_migration_speed(
-                dirname(filename), alpha=self.alpha
-            )
+            if self.profiled_migration_speed_bps is None:
+                self.profiled_migration_speed_bps = profile_migration_speed(
+                    dirname(filename), alpha=self.alpha
+                )
+            self.migration_speed_bps = self.profiled_migration_speed_bps
             self.selector.migration_speed_bps = self.migration_speed_bps
         self.logger.info(f"Migration speed: {self.migration_speed_bps} bytes/s")
 
