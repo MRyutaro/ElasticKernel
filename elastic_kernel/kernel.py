@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import json
 import logging
@@ -247,20 +248,61 @@ class ElasticKernel(IPythonKernel):
             )
             del self.shell.user_ns_hidden[variable_name]
 
-    def __skip_record(self, code):
+    # IPythonがマジック/シェルコマンドを変換した結果として現れる get_ipython() の
+    # メソッド名。これらの呼び出ししか含まないセルは「純粋なマジックセル」とみなす。
+    __MAGIC_CALL_METHODS = frozenset(
+        {"run_line_magic", "run_cell_magic", "system", "getoutput"}
+    )
+
+    @staticmethod
+    def __is_pure_magic_cell(transformed_code):
         """
-        ElasitcNotebookのrecord_eventをスキップするかどうかを判断する
+        IPythonが変換した後のコードが、マジック/シェルコマンドの呼び出しのみで
+        構成されている（=追跡対象のPythonコードを含まない）かどうかを判定する。
+
+        変換不能（SyntaxError）な場合や空セルも True（スキップ）として扱う。
         """
-        skip_magic_commands = ["!", "%", "%%"]
-        is_magic_command = any(
-            code.strip().startswith(magic) for magic in skip_magic_commands
-        )
-        if is_magic_command:
+        try:
+            tree = ast.parse(transformed_code)
+        except SyntaxError:
             return True
 
-        # TODO: bashなどpythonコードではない場合はスキップする
+        if not tree.body:
+            return True
 
-        return False
+        return all(ElasticKernel.__is_magic_statement(node) for node in tree.body)
+
+    @staticmethod
+    def __is_magic_statement(node):
+        """
+        AST ノードが get_ipython().run_line_magic(...) 等のマジック呼び出し式か判定する。
+        """
+        if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Call):
+            return False
+        func = node.value.func
+        if (
+            not isinstance(func, ast.Attribute)
+            or func.attr not in ElasticKernel.__MAGIC_CALL_METHODS
+        ):
+            return False
+        inner = func.value
+        return (
+            isinstance(inner, ast.Call)
+            and isinstance(inner.func, ast.Name)
+            and inner.func.id == "get_ipython"
+        )
+
+    def __transform_cell(self, code):
+        """
+        IPython本体と同じ入力変換器でセルを正規のPythonコードへ変換する。
+        マジック（%, %%）やシェル（!）は get_ipython() 呼び出しへ展開されるため、
+        この結果は ast.parse 可能であり、record_event 側の解析が壊れない。
+        変換に失敗した場合は元のコードをそのまま返す。
+        """
+        try:
+            return self.shell.transform_cell(code)
+        except Exception:
+            return code
 
     async def do_execute(
         self, code, silent, store_history=True, user_expressions=None, allow_stdin=False
@@ -272,7 +314,10 @@ class ElasticKernel(IPythonKernel):
 
         self.logger.debug(f"Executing Code:\n{code}")
 
-        skip_record = self.__skip_record(code)
+        # マジック行を含むセルでも記録できるよう、IPythonの入力変換を通した
+        # 正規Pythonコードを record_event に渡す（issue #17）。
+        transformed_code = self.__transform_cell(code)
+        skip_record = self.__is_pure_magic_cell(transformed_code)
 
         pre_execution_user_ns = (
             set(self.shell.user_ns.keys()) if not skip_record else None
@@ -297,7 +342,7 @@ class ElasticKernel(IPythonKernel):
             cell_runtime = time.time() - start_time
             self.logger.debug(f"Cell runtime: {cell_runtime}")
             self.elastic_notebook.record_event(
-                code, pre_execution_user_ns, start_time, cell_runtime
+                transformed_code, pre_execution_user_ns, start_time, cell_runtime
             )
             self.logger.debug("Recording event")
 
