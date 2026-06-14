@@ -25,4 +25,6 @@ WORKDIR /app
 # パスを設定
 ENV PATH="/tmp/.venv/bin:$PATH"
 
-CMD ["jupyter", "lab", "--allow-root", "--ip=0.0.0.0"]
+# --ip=0.0.0.0 だけだと、表示されるアクセスURLにコンテナのホスト名が使われ、
+# ホスト側のブラウザから到達できない。custom_display_url で 127.0.0.1 に固定する。
+CMD ["jupyter", "lab", "--allow-root", "--no-browser", "--ip=0.0.0.0", "--port=8888", "--ServerApp.custom_display_url=http://127.0.0.1:8888"]
