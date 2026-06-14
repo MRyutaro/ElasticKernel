@@ -50,9 +50,17 @@ elastic-kernel = "elastic_kernel.command:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["elastic_kernel*", "elastic_notebook*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+files = ["elastic_kernel", "elastic_notebook"]
+ignore_missing_imports = true
 
 [tool.setuptools.package-data]
 "elastic_kernel" = ["kernel.json", "kernel.py"]

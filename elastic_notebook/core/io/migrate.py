@@ -135,7 +135,7 @@ def migrate(
                         f"    WARNING: Very large list detected ({len(obj):,} elements). This may take a long time to serialize."
                     )
                     logger.warning(
-                        f"    Consider using NumPy arrays or other more efficient data structures for large datasets."
+                        "    Consider using NumPy arrays or other more efficient data structures for large datasets."
                     )
 
             # dill.dumpの実行時間を計測
@@ -166,7 +166,7 @@ def migrate(
                     f"    This operation may take several minutes. Total elements: {total_size:,}"
                 )
                 logger.warning(
-                    f"    If the kernel becomes unresponsive, Jupyter may terminate it."
+                    "    If the kernel becomes unresponsive, Jupyter may terminate it."
                 )
 
             dill.dump(obj_list, output_file)
