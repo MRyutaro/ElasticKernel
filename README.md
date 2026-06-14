@@ -2,22 +2,9 @@
 
 ElasticKernel: An IPython Kernel that automatically saves and restores Jupyter Notebook execution states.
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/elastic-kernel)
+
 ## 使用方法
-
-### Dockerを用いた方法
-1. イメージをプルする
-```sh
-docker pull ghcr.io/mryutaro/elastickernel
-```
-
-2. コンテナを起動する
-```sh
-docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
-```
-
-3. ブラウザからJupyterLabにアクセスする
-
-4. Python 3 (Elastic)のカーネルを選択する
 
 ### ローカルでの使用方法
 
@@ -48,6 +35,21 @@ $ jupyter lab --ip=0.0.0.0
 5. ブラウザからJupyterLabにアクセスする
 
 6. Python 3 (Elastic)のカーネルを選択する
+
+### Dockerを用いた方法
+1. イメージをプルする
+```sh
+docker pull ghcr.io/mryutaro/elastickernel
+```
+
+2. コンテナを起動する
+```sh
+docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
+```
+
+3. ブラウザからJupyterLabにアクセスする
+
+4. Python 3 (Elastic)のカーネルを選択する
 
 ## 開発者向け資料
 
