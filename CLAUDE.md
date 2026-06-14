@@ -55,28 +55,24 @@ uv run pytest
 
 ### バージョン管理・リリース（PyPI / GHCR への公開）
 
-バージョン管理は **`bump-my-version`** を使用する（設定は `.bumpversion.toml`）。`bump-my-version bump` を実行すると、`pyproject.toml` の `version` 更新・コミット・`v{new_version}` タグ付けが**自動で行われる**。その後タグ（`v*.*.*`）を push すると、2つの CI ワークフローが発火して公開する: `publish-to-pypi.yml` → PyPI、`docker-publish.yml` → GHCR（Dockerイメージ）。
+リリースは **release-please** で管理する（設定は `release-please-config.json` と `.release-please-manifest.json`、ワークフローは `.github/workflows/release-please.yml`）。
 
-```sh
-# 初回のみ
-uv pip install bump-my-version
+**フロー:**
+1. main にマージされたコミット（PR）の **Conventional Commits** から release-please が次バージョンを判定し、`pyproject.toml` のバージョン更新と `CHANGELOG.md` をまとめた**リリース PR を自動作成・更新**する。
+2. そのリリース PR を**マージ**すると、`v{version}` タグと GitHub Release が自動で作られる。
+3. タグ（`v*.*.*`）を起点に既存の 2 ワークフローが発火して公開する: `publish-to-pypi.yml` → PyPI、`docker-publish.yml` → GHCR（Dockerイメージ）。
 
-# バージョンを上げる（いずれか1つ）
-bump-my-version bump patch  # 0.0.27 -> 0.0.28（後方互換のバグ修正・内部改善）
-bump-my-version bump minor  # 0.0.27 -> 0.1.0（後方互換の機能追加）
-bump-my-version bump major  # 0.0.27 -> 1.0.0（後方互換を壊す変更）
+**バンプレベルはコミット種別で決まる**（手動指定ではない）:
+- `fix:` → **patch**（0.0.28 → 0.0.29）
+- `feat:` → **minor**（0.0.28 → 0.1.0）
+- `feat!:` / `fix!:` または本文に `BREAKING CHANGE:` → **major**（0.0.28 → 1.0.0）
+- `docs:` `refactor:` `chore:` `test:` `ci:` などはリリースに含まれるがバージョンは上げない。
+- 特定バージョンへ強制したい場合はコミット本文に `Release-As: 1.0.0` を記載する。
+- Squash merge では **PR タイトルが判定に使われる**ため、PR タイトルを Conventional Commits 形式にする。
 
-# コミットとタグの両方を push（これで CI が公開を実行する）
-git push --follow-tags
-```
+**前提セットアップ:** GITHUB_TOKEN で作成したタグは他ワークフローを起動できない（GitHub の仕様）。PyPI/GHCR への公開を自動発火させるため、release-please は GitHub App トークンでタグを打つ。App（Contents: read/write、Pull requests: read/write）を作成・インストールし、`RELEASE_PLEASE_APP_ID` と `RELEASE_PLEASE_APP_PRIVATE_KEY` をリポジトリ Secret に設定すること。`actions/create-github-app-token` が実行時にトークンを発行する。
 
-**いつバージョンを上げるか（適切なタイミング）:**
-- 公開物（PyPI パッケージ / Docker イメージ）に反映したいユーザー向けの変更が main にマージされたとき。
-- 原則 **semver** に従う: バグ修正・リファクタ・内部改善のみ → `patch` / 後方互換の新機能 → `minor` / 公開API・チェックポイントファイル形式・kernelspec 等の互換性を壊す変更 → `major`。
-- ドキュメントのみ・CI設定のみ・テスト追加のみの変更ではバンプ**しない**（公開物が変わらないため）。
-- **バンプは原則 main がクリーンな状態で行う**（`.bumpversion.toml` は `allow_dirty = false`）。リファクタリング作業中の中間コミットでは上げず、一連の変更が完了してから1回上げる。
-
-> 手動公開（CIを使わない方法）は `docs/DEVELOPERS.md` を参照。
+> 旧来の `bump-my-version`（`.bumpversion.toml`）は手動フォールバックとして残してある。`bump-my-version bump <level>` でローカルからタグを打って `git push --follow-tags` すれば従来どおり公開できる。手動公開（CIを使わない方法）は `docs/DEVELOPERS.md` を参照。
 
 ## アーキテクチャ
 
