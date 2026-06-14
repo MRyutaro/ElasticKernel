@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
 
-from setuptools.command.install import install
-
 
 def install_kernel():
     try:
@@ -22,13 +20,6 @@ def install_kernel():
     )
     print(f"Elastic Kernel installed from: {kernel_dir}")
     return True
-
-
-class PostInstallCommand(install):
-    def run(self):
-        install.run(self)
-        print("=== Elastic Kernel: Installing Jupyter kernel ===")
-        install_kernel()
 
 
 def main():

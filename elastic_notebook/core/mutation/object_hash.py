@@ -261,7 +261,9 @@ def construct_object_hash(obj, deepcopy=False):
         str1 = h.intdigest()
         return TorchTensorObj(str1)
 
-    if isinstance(obj, ModuleType) or isclass(obj):
+    # Note: classes are already handled by the `isclass(obj)` check near the top of
+    # this function, so only the ModuleType case is reachable here.
+    if isinstance(obj, ModuleType):
         return ModuleObj()
 
     if is_polars_dataframe(obj) or is_lightgbm_dataset(obj):

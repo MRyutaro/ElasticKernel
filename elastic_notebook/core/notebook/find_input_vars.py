@@ -76,7 +76,7 @@ def find_input_vars(
     """
     Capture the input variables of the cell via AST analysis.
     Args:
-        cell (str): Raw cell cell.
+        cell (str): The raw cell source code.
         existing_variables (set): Set of user-defined variables in the current session.
         shell (ZMQInteractiveShell): Shell of current session. For inferring variable types.
         shell_udfs (set): Set of user-declared functions in the shell.
