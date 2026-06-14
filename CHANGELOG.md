@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.33](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.32...v0.0.33) (2026-06-14)
+
+
+### Bug Fixes
+
+* record cells mixing magic lines with Python code ([#17](https://github.com/MRyutaro/ElasticKernel/issues/17)) ([90bbba7](https://github.com/MRyutaro/ElasticKernel/commit/90bbba705846a4cc11156f36bd01be36036b5c43))
+* record cells mixing magic lines with Python code ([#17](https://github.com/MRyutaro/ElasticKernel/issues/17)) ([4afff90](https://github.com/MRyutaro/ElasticKernel/commit/4afff904204fe6f9169ad7adcd73d3558b2abe16))
+* stabilize migration speed measurement to prevent runaway checkpoints ([a89627e](https://github.com/MRyutaro/ElasticKernel/commit/a89627e349600e38b4a171a2902e906fbc9c3875))
+* stabilize migration speed measurement to prevent runaway checkpoints ([ba32944](https://github.com/MRyutaro/ElasticKernel/commit/ba32944c880cafc51654df40e32157eb24a57a5b)), closes [#21](https://github.com/MRyutaro/ElasticKernel/issues/21)
+
+
+### Performance Improvements
+
+* profile migration speed only once per session ([288b8e4](https://github.com/MRyutaro/ElasticKernel/commit/288b8e400b89587cdfed0e266976635958cae6bf)), closes [#21](https://github.com/MRyutaro/ElasticKernel/issues/21)
+
 ## [0.0.32](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.31...v0.0.32) (2026-06-14)
 
 
