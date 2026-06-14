@@ -21,8 +21,8 @@ ElasticKernel は、ノートブックの実行状態を**自動でチェック�
 <th align="center">ElasticKernel</th>
 </tr>
 <tr>
-<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/ipykernel.mp4" controls muted></video></td>
-<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/elastickernel.mp4" controls muted></video></td>
+<td width="50%"><video src="https://github.com/user-attachments/assets/9ba4d267-20e8-4b06-a3ea-869c19687f81" controls muted></video></td>
+<td width="50%"><video src="https://github.com/user-attachments/assets/9f3c7acc-2ae9-4f98-873c-60f37f1a434e" controls muted></video></td>
 </tr>
 <tr>
 <td align="center">❌ 再起動後、<code>a</code> は<b>消えています</b>。<code>%whos</code> は <i>「Interactive namespace is empty.」</i> と表示します。</td>
