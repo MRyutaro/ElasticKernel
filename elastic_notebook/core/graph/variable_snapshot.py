@@ -26,7 +26,7 @@ class VariableSnapshot:
         self.deleted = deleted
 
         # Cell executions accessing this variable snapshot (i.e. require this variable snapshot to run).
-        self.input_ces = []
+        self.input_ces: list = []
 
         # The unique cell execution creating this variable snapshot.
         self.output_ce = None

@@ -1,6 +1,8 @@
 # This file has been modified from the original ElasticNotebook.
 # Original: https://github.com/illinoisdata/ElasticNotebook
 
+from typing import Union
+
 import networkx as nx
 import numpy as np
 from networkx.algorithms.flow import shortest_augmenting_path
@@ -23,9 +25,6 @@ class OptimizerExact(Selector):
         self.active_oes = None
         self.compute_graph = None
 
-        # CEs required to recompute a variables last modified by a given CE.
-        self.recomputation_ces = {}
-
         self.idx = 0
 
     def get_new_idx(self) -> int:
@@ -36,7 +35,12 @@ class OptimizerExact(Selector):
         self.idx += 1
         return idx
 
-    def dfs(self, current: str, visited: set, recompute_ces: str):
+    def dfs(
+        self,
+        current: Union[CellExecution, VariableSnapshot, None],
+        visited: set,
+        recompute_ces: set,
+    ):
         """
         Perform DFS on the Application History Graph for finding the CEs required to recompute a variable.
         Args:
@@ -71,7 +75,7 @@ class OptimizerExact(Selector):
                 self.dfs(ce, set(), recompute_ces)
                 self.recomputation_ces[ce] = recompute_ces
 
-    def select_vss(self, notebook_name=None, optimizer_name=None) -> set:
+    def select_vss(self, notebook_name=None, optimizer_name=None) -> tuple:
         self.find_prerequisites()
 
         # Construct flow graph for computing mincut

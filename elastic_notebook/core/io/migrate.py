@@ -53,7 +53,7 @@ def migrate(
     logger.debug(f"{udfs=}")
 
     # construct serialization order list.
-    temp_dict = {}
+    temp_dict: dict = {}
     serialization_order = []
     for vs1, vs2 in overlapping_vss:
         if vs1 in temp_dict:
