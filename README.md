@@ -57,6 +57,28 @@ docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
 
 [ここ](/docs/developers.md)を参考にしてください．
 
+## 発表論文 (Publication)
+
+本プロジェクトは、以下の論文で発表されました。研究や成果物で利用する場合は、こちらを引用してください。
+
+> R. Matsumoto, K. Taniguchi, T. Hayami, K. Takahashi, and S. Date.
+> "ElasticHub: A Cost-Efficient JupyterHub Platform via Automated Scaling with Kubernetes on Hybrid Cloud."
+> Proceedings of the 16th International Conference on Cloud Computing and Services Science, pp. 261–268, 2026.
+> DOI: [10.5220/0014840200004039](https://doi.org/10.5220/0014840200004039)
+
+```bibtex
+@inproceedings{matsumoto2026elastichub,
+  author    = {Matsumoto, R. and Taniguchi, K. and Hayami, T. and Takahashi, K. and Date, S.},
+  title     = {ElasticHub: A Cost-Efficient JupyterHub Platform via Automated Scaling with Kubernetes on Hybrid Cloud},
+  booktitle = {Proceedings of the 16th International Conference on Cloud Computing and Services Science},
+  year      = {2026},
+  pages     = {261--268},
+  isbn      = {978-989-758-829-7},
+  issn      = {2184-5042},
+  doi       = {10.5220/0014840200004039}
+}
+```
+
 ## Acknowledgments
 
 This project includes code from [ElasticNotebook](https://github.com/illinoisdata/ElasticNotebook),
