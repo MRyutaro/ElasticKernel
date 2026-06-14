@@ -22,32 +22,35 @@ jupyter kernelspec list
 
 ### アプリケーションの実行
 
-**Docker Composeを使用する場合:**
+**Dockerを使用する場合:**
 ```sh
-docker compose up
-# http://localhost:8888 でJupyterLabにアクセス
-# "Python 3 (Elastic)" カーネルを選択
+docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
+# http://127.0.0.1:8888 でJupyterLabにアクセス
+# "Python 3 (ElasticKernel)" カーネルを選択
 ```
 
 **ローカル開発の場合:**
 ```sh
 # JupyterLabを起動
 jupyter lab
-# "Python 3 (Elastic)" カーネルを選択
+# "Python 3 (ElasticKernel)" カーネルを選択
 ```
 
 ### コード品質
 
 ```sh
 # コードフォーマット
-uv run black .
-uv run isort .
+uv run black elastic_kernel elastic_notebook tests
+uv run isort elastic_kernel elastic_notebook tests
 
 # リント
-uv run flake8
+uv run flake8 elastic_kernel elastic_notebook tests
 
 # 型チェック
 uv run mypy
+
+# テスト
+uv run pytest
 ```
 
 ### バージョン管理・リリース（PyPI / GHCR への公開）
