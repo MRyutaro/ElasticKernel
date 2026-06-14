@@ -112,7 +112,7 @@ class OptimizerExact(Selector):
             if mincut_graph.in_degree(ce) == 0:
                 mincut_graph.remove_node(ce)
 
-        # Solve min-cut with Ford-Fulkerson.
+        # Solve min-cut with the shortest augmenting path algorithm.
         cut_value, partition = nx.minimum_cut(
             mincut_graph, "source", "sink", flow_func=shortest_augmenting_path
         )
