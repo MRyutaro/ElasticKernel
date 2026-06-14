@@ -7,19 +7,14 @@ import logging
 import os
 import time
 import types
-from datetime import datetime, timedelta, timezone
-from logging.handlers import RotatingFileHandler
 from os.path import dirname
-from pathlib import Path
 
 from IPython.core.interactiveshell import InteractiveShell
 
-from elastic_notebook.algorithm.baseline import MigrateAllBaseline, RecomputeAllBaseline
 from elastic_notebook.algorithm.optimizer_exact import OptimizerExact
-from elastic_notebook.algorithm.selector import OptimizerType
+from elastic_notebook.core.common.logging_setup import setup_logger
 from elastic_notebook.core.common.profile_migration_speed import profile_migration_speed
 from elastic_notebook.core.graph.graph import DependencyGraph
-from elastic_notebook.core.io.filesystem_adapter import FilesystemAdapter
 from elastic_notebook.core.io.recover import resume
 from elastic_notebook.core.mutation.fingerprint import (
     compare_fingerprint,
@@ -31,20 +26,6 @@ from elastic_notebook.core.notebook.find_input_vars import find_input_vars
 from elastic_notebook.core.notebook.find_output_vars import find_created_deleted_vars
 from elastic_notebook.core.notebook.restore_notebook import restore_notebook
 from elastic_notebook.core.notebook.update_graph import update_graph
-
-
-class JSTFormatter(logging.Formatter):
-    """日本時間（JST）用のログフォーマッター"""
-
-    def converter(self, timestamp):
-        dt = datetime.fromtimestamp(timestamp)
-        return dt.astimezone(timezone(timedelta(hours=9)))  # UTC+9
-
-    def formatTime(self, record, datefmt=None):
-        dt = self.converter(record.created)
-        if datefmt:
-            return dt.strftime(datefmt)
-        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # マイクロ秒を3桁まで表示
 
 
 class ElasticNotebook:
@@ -103,28 +84,7 @@ class ElasticNotebook:
         return self._vss_to_recompute
 
     def __setup_logger(self):
-        # ロガーの設定
-        self.logger = logging.getLogger("ElasticNotebookLogger")
-
-        # 環境変数からログレベルを取得
-        log_level_str = os.environ.get("ELASTIC_KERNEL_LOG_LEVEL", "INFO").upper()
-        log_level = getattr(logging, log_level_str, logging.INFO)
-        self.logger.setLevel(log_level)
-
-        formatter = JSTFormatter(
-            "[%(asctime)s %(name)s %(filename)s:%(lineno)d %(levelname)s] %(message)s",
-            "%Y-%m-%d %H:%M:%S.%f",
-        )
-
-        # ローテーティングファイルハンドラー
-        rotating_file_handler = RotatingFileHandler(
-            self.log_file_path,
-            maxBytes=5 * 1024 * 1024,
-            backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
-        )
-        rotating_file_handler.setLevel(log_level)
-        rotating_file_handler.setFormatter(formatter)
-        self.logger.addHandler(rotating_file_handler)
+        self.logger = setup_logger("ElasticNotebookLogger", self.log_file_path)
 
     def update_migration_lists(self, vss_to_migrate, vss_to_recompute):
         """マイグレーションと再計算の変数リストを更新"""
@@ -278,33 +238,6 @@ class ElasticNotebook:
                 f"record_event took {total_record_time:.3f}s - performance issue detected"
             )
 
-    def set_migration_speed(self, migration_speed):
-        try:
-            if float(migration_speed) > 0:
-                self.migration_speed_bps = float(migration_speed)
-                self.manual_migration_speed = True
-        except ValueError:
-            pass
-
-        self.selector.migration_speed_bps = self.migration_speed_bps
-
-    def set_optimizer(self, optimizer):
-        self.optimizer_name = optimizer
-
-        if optimizer == OptimizerType.EXACT.value:
-            self.selector = OptimizerExact(self.migration_speed_bps)
-            self.alpha = 1
-        elif optimizer == OptimizerType.EXACT_C.value:
-            self.selector = OptimizerExact(self.migration_speed_bps)
-            self.alpha = 20
-        elif optimizer == OptimizerType.EXACT_R.value:
-            self.selector = OptimizerExact(self.migration_speed_bps)
-            self.alpha = 0.05
-        elif optimizer == OptimizerType.MIGRATE_ALL.value:
-            self.selector = MigrateAllBaseline(self.migration_speed_bps)
-        elif optimizer == OptimizerType.RECOMPUTE_ALL.value:
-            self.selector = RecomputeAllBaseline(self.migration_speed_bps)
-
     def checkpoint(self, filename):
         self.logger.info("チェックポイントの保存を開始します")
 
@@ -341,12 +274,13 @@ class ElasticNotebook:
     def load_checkpoint(self, filename):
         self.logger.info("チェックポイントの読み込みを開始します")
 
-        (
-            self.dependency_graph,
-            variables,
-            ces_to_recompute,
-            self.udfs,
-        ) = resume(filename)
+        # resume() returns the checkpoint metadata and recovered variables in a single
+        # read (D-2: previously the file was read 3 times and the fault-tolerance
+        # ces_to_recompute update was silently discarded by a re-read).
+        metadata, variables = resume(filename)
+        self.dependency_graph = metadata.get_dependency_graph()
+        ces_to_recompute = metadata.get_ces_to_recompute()
+        self.udfs = metadata.get_udfs()
 
         # Recompute missing VSs and redeclare variables into the kernel.
         restore_notebook(
@@ -357,10 +291,6 @@ class ElasticNotebook:
         )
 
         # 読み込んだメタデータから、マイグレートされた変数と再計算される変数を取得
-        adapter = FilesystemAdapter()
-        metadata = adapter.read_all(Path(filename))
-
-        # マイグレートされた変数と再計算される変数のリストを取得
         vss_to_migrate = (
             metadata.get_vss_to_migrate() if metadata.get_vss_to_migrate() else set()
         )

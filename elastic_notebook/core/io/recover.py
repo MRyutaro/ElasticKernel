@@ -13,21 +13,20 @@ from pathlib import Path
 
 import dill
 
-from elastic_notebook.core.io.filesystem_adapter import FilesystemAdapter
-
 
 def resume(filename: str = "./notebook.pickle"):
     """
     Reads the file at `filename` and unpacks the graph representation of the notebook, migrated variables, and
     instructions for recomputation.
 
+    Returns the checkpoint metadata (a CheckpointFile) and the recovered variables.
+    The metadata reflects any fault-tolerance updates to ces_to_recompute made when
+    a variable group fails to unpickle (D-2).
+
     Args:
         filename (str): Location of the checkpoint file.
     """
     logger = logging.getLogger("ElasticNotebookLogger")
-
-    # Reads from the default location if a file path isn't specified.
-    adapter = FilesystemAdapter()
 
     load_start = time.time()
 
@@ -50,16 +49,10 @@ def resume(filename: str = "./notebook.pickle"):
                             metadata.recomputation_ces[vs.output_ce]
                         )
 
-    metadata = adapter.read_all(Path(filename))
     load_end = time.time()
 
     logger.debug(f"load_time: {load_end - load_start}")
     logger.debug(f"{metadata=}")
     logger.debug(f"{variables=}")
 
-    return (
-        metadata.get_dependency_graph(),
-        variables,
-        metadata.get_ces_to_recompute(),
-        metadata.get_udfs(),
-    )
+    return metadata, variables

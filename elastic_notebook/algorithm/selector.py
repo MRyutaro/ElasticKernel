@@ -1,20 +1,6 @@
 # This file has been modified from the original ElasticNotebook.
 # Original: https://github.com/illinoisdata/ElasticNotebook
 
-from enum import Enum
-
-
-class OptimizerType(Enum):
-    """
-    String representations of all implemented optimizers.
-    """
-
-    EXACT = "exact"
-    EXACT_C = "exact_c"
-    EXACT_R = "exact_r"
-    MIGRATE_ALL = "migrate_all"
-    RECOMPUTE_ALL = "recompute_all"
-
 
 class Selector:
     """
@@ -32,13 +18,13 @@ class Selector:
         self.overlapping_vss = None
         self.migration_speed_bps = migration_speed_bps
 
-    def select_vss(self) -> set:
+    def select_vss(self, notebook_name=None, optimizer_name=None) -> set:
         """
-        Classes that inherit from the `Selector` class (such as `Optimizer` and various baselines)
-            should override `select_vss`.
+        Classes that inherit from the `Selector` class (such as `OptimizerExact`) should
+        override `select_vss`.
 
         Returns:
-            set(VariableSnapshot): a subset of active VSs selected to migrate based on various heuristics and
-            algorithms.
+            Tuple[set(VariableSnapshot), set(CellExecution)]: the VSs selected to migrate and
+            the CEs selected to recompute.
         """
         raise NotImplementedError()
