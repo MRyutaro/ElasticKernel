@@ -11,6 +11,27 @@ ElasticKernel は、ノートブックの実行状態を**自動でチェック�
 
 > 🇬🇧 The English README is available at [README.md](README.md).
 
+## デモ
+
+どちらの動画も同じ操作です。変数 `a = 1` を定義し、**カーネルを再起動**します。違いはその後に表れます。
+
+<table>
+<tr>
+<th align="center">標準カーネル（<code>ipykernel</code>）</th>
+<th align="center">ElasticKernel</th>
+</tr>
+<tr>
+<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/ipykernel.mp4" controls muted></video></td>
+<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/elastickernel.mp4" controls muted></video></td>
+</tr>
+<tr>
+<td align="center">❌ 再起動後、<code>a</code> は<b>消えています</b>。<code>%whos</code> は <i>「Interactive namespace is empty.」</i> と表示します。</td>
+<td align="center">✅ 再起動後も <code>a</code> は<b>自動で復元</b>されます。<code>%whos</code> には引き続き <code>a&nbsp;&nbsp;int&nbsp;&nbsp;1</code> が表示されます。</td>
+</tr>
+</table>
+
+> 動画がインラインで再生されない場合はクリックしてください: [ipykernel](docs/assets/ipykernel.mp4) · [ElasticKernel](docs/assets/elastickernel.mp4)
+
 ## なぜ ElasticKernel なのか
 
 Jupyter ユーザーなら誰もが経験があるはずです。長時間の計算が終わった直後、うっかりカーネルを再起動してしまった（あるいは OOM でクラッシュした）――そして**セッション内の変数がすべて消える**。よくある回避策は、あちこちに `pickle.dump` / `joblib.dump` を書き、手動でロードし直すことです。
