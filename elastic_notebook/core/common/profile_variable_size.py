@@ -62,16 +62,15 @@ def get_total_size(data):
                 obj, type
             ):  # True if obj is a class
                 pass
-            # custom class instance
-            elif isinstance(type(obj), type):
-                # if obj has no builtin size and has additional pointers
-                # if obj has builtin size, all the additional memory space is already added
-                if not hasattr(obj, "__sizeof__") and hasattr(obj, "__dict__"):
-                    for k, v in getattr(obj, "__dict__").items():
-                        total_size = total_size + get_memory_size(k, False, visited)
-                        total_size = total_size + get_memory_size(v, False, visited)
-            else:
-                raise NotImplementedError("Not handled", obj)
+            # custom class instance: sys.getsizeof only accounts for the instance
+            # object itself, so recurse into its attributes (stored in __dict__) to
+            # include the memory they reference. (D-4)
+            elif hasattr(obj, "__dict__"):
+                for k, v in vars(obj).items():
+                    total_size = total_size + get_memory_size(k, False, visited)
+                    total_size = total_size + get_memory_size(v, False, visited)
+            # Objects without __dict__ (e.g. __slots__-based or C extension types):
+            # rely on sys.getsizeof, which typically reports their full size.
         return total_size
 
     return get_memory_size(data, True, set())
