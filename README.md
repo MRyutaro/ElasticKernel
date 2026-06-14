@@ -11,12 +11,26 @@ ElasticKernel is a custom IPython kernel that **automatically checkpoints your n
 
 > 🇯🇵 日本語版は [README.ja.md](README.ja.md) を参照してください。
 
-<!--
-TODO: Add a ~15s demo GIF at the top showing the core value:
-  heavy computation → kernel restart/crash → variables are still there.
-A demo GIF here dramatically improves shareability.
-![ElasticKernel demo](docs/assets/demo.gif)
--->
+## Demo
+
+The same workflow in both clips: define a variable `a = 1`, then **restart the kernel**. The difference is what happens next.
+
+<table>
+<tr>
+<th align="center">Standard kernel (<code>ipykernel</code>)</th>
+<th align="center">ElasticKernel</th>
+</tr>
+<tr>
+<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/ipykernel.mp4" controls muted></video></td>
+<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/elastickernel.mp4" controls muted></video></td>
+</tr>
+<tr>
+<td align="center">❌ After the restart, <code>a</code> is <b>gone</b> — <code>%whos</code> reports <i>"Interactive namespace is empty."</i></td>
+<td align="center">✅ After the restart, <code>a</code> is <b>automatically restored</b> — <code>%whos</code> still shows <code>a&nbsp;&nbsp;int&nbsp;&nbsp;1</code>.</td>
+</tr>
+</table>
+
+> If the videos don't play inline, click them to view: [ipykernel](docs/assets/ipykernel.mp4) · [ElasticKernel](docs/assets/elastickernel.mp4).
 
 ## Why ElasticKernel?
 
