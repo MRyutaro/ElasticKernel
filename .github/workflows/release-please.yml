@@ -17,12 +17,18 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # GitHub App トークンを実行時に発行する。GITHUB_TOKEN で作ったタグは他ワークフロー
+      # を起動できない（GitHub の仕様）ため、公開ワークフロー（PyPI / GHCR）を自動発火
+      # させるには App トークンでタグを打つ必要がある。
+      # App ID と秘密鍵は Secrets（RELEASE_PLEASE_APP_ID / RELEASE_PLEASE_APP_PRIVATE_KEY）に設定する。
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
       - uses: googleapis/release-please-action@v4
         with:
-          # GITHUB_TOKEN で作ったタグは他ワークフローを起動できない（GitHub の仕様）。
-          # 公開ワークフロー（PyPI / GHCR）を自動発火させるには PAT または GitHub App
-          # トークンを RELEASE_PLEASE_TOKEN に設定する。未設定でもリリース PR 作成・
-          # タグ付けは動くが、その場合は公開がトリガーされない。
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

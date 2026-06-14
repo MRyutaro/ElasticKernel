@@ -70,7 +70,7 @@ uv run pytest
 - 特定バージョンへ強制したい場合はコミット本文に `Release-As: 1.0.0` を記載する。
 - Squash merge では **PR タイトルが判定に使われる**ため、PR タイトルを Conventional Commits 形式にする。
 
-**前提セットアップ:** GITHUB_TOKEN で作成したタグは他ワークフローを起動できない（GitHub の仕様）。PyPI/GHCR への公開を自動発火させるには、PAT もしくは GitHub App トークンをリポジトリ Secret `RELEASE_PLEASE_TOKEN` に設定する。未設定でもリリース PR 作成・タグ付けは動くが、その場合は公開がトリガーされない。
+**前提セットアップ:** GITHUB_TOKEN で作成したタグは他ワークフローを起動できない（GitHub の仕様）。PyPI/GHCR への公開を自動発火させるため、release-please は GitHub App トークンでタグを打つ。App（Contents: read/write、Pull requests: read/write）を作成・インストールし、`RELEASE_PLEASE_APP_ID` と `RELEASE_PLEASE_APP_PRIVATE_KEY` をリポジトリ Secret に設定すること。`actions/create-github-app-token` が実行時にトークンを発行する。
 
 > 旧来の `bump-my-version`（`.bumpversion.toml`）は手動フォールバックとして残してある。`bump-my-version bump <level>` でローカルからタグを打って `git push --follow-tags` すれば従来どおり公開できる。手動公開（CIを使わない方法）は `docs/DEVELOPERS.md` を参照。
 
