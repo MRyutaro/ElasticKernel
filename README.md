@@ -1,65 +1,102 @@
 # ElasticKernel
 
-ElasticKernel: An IPython Kernel that automatically saves and restores Jupyter Notebook execution states.
+**Never lose your Jupyter variables to a kernel restart again.**
 
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/elastic-kernel)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/elastic-kernel)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=weekly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fweek)](https://pepy.tech/projects/elastic-kernel)
+ElasticKernel is a custom IPython kernel that **automatically checkpoints your notebook's execution state and restores it after a restart or crash** — no manual `pickle.dump` required. Pick up exactly where you left off.
 
-## 使用方法
+[![PyPI version](https://img.shields.io/pypi/v/elastic-kernel.svg)](https://pypi.org/project/elastic-kernel/)
+[![Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/elastic-kernel)
+[![Downloads/month](https://static.pepy.tech/personalized-badge/elastic-kernel?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/elastic-kernel)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-### ローカルでの使用方法
+> 🇯🇵 日本語版は [README.ja.md](README.ja.md) を参照してください。
 
-1. ライブラリをインストールする
-```sh
-$ pip install elastic-kernel
-```
+<!--
+TODO: Add a ~15s demo GIF at the top showing the core value:
+  heavy computation → kernel restart/crash → variables are still there.
+A demo GIF here dramatically improves shareability.
+![ElasticKernel demo](docs/assets/demo.gif)
+-->
 
-2. カーネルをインストールする
-```sh
-$ elastic-kernel install
-Elastic Kernel installed from: /path/to/elastic_kernel
-```
+## Why ElasticKernel?
 
-3. カーネルがインストールされたか確認する
-```sh
-$ jupyter kernelspec list
-Available kernels:
-  elastic_kernel    /Users/matsumotoryutaro/Library/Jupyter/kernels/elastic_kernel
-```
+Every Jupyter user has been there: a long computation finishes, then an accidental kernel
+restart (or an out-of-memory crash) wipes **every variable in your session**. The usual
+workaround is scattering `pickle.dump` / `joblib.dump` calls everywhere and remembering to
+reload them by hand.
 
-4. JupyterLabを起動する
+ElasticKernel removes that chore entirely:
 
-```
-$ jupyter lab --ip=0.0.0.0
-```
+- 🔄 **Automatic state recovery** — your variables survive kernel restarts and shutdowns, with zero changes to your code.
+- 🧠 **Dependency-aware** — tracks how cells and variables depend on one another to restore a consistent state.
+- ⚡ **Cost-optimized checkpoints** — for each variable it decides whether to *serialize* it or *recompute* it on restore, based on serialization size vs. recomputation cost (a min-cut optimization).
+- 🪄 **Drop-in** — just pick the `Python 3 (ElasticKernel)` kernel; the rest of your workflow is unchanged.
 
-5. ブラウザからJupyterLabにアクセスする
+## Installation & Usage
 
-6. Python 3 (Elastic)のカーネルを選択する
+### Local
 
-### Dockerを用いた方法
-1. イメージをプルする
-```sh
-docker pull ghcr.io/mryutaro/elastickernel
-```
+1. Install the package:
+   ```sh
+   $ pip install elastic-kernel
+   ```
 
-2. コンテナを起動する
-```sh
-docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
-```
+2. Install the kernel:
+   ```sh
+   $ elastic-kernel install
+   Elastic Kernel installed from: /path/to/elastic_kernel
+   ```
 
-3. ブラウザからJupyterLabにアクセスする
+3. Verify the kernel is installed:
+   ```sh
+   $ jupyter kernelspec list
+   Available kernels:
+     elastic_kernel    /path/to/Jupyter/kernels/elastic_kernel
+   ```
 
-4. Python 3 (Elastic)のカーネルを選択する
+4. Launch JupyterLab:
+   ```sh
+   $ jupyter lab --ip=0.0.0.0
+   ```
 
-## 開発者向け資料
+5. Open JupyterLab in your browser.
 
-[ここ](/docs/DEVELOPERS.md)を参考にしてください．
+6. Select the **Python 3 (ElasticKernel)** kernel.
 
-## 発表論文 (Publication)
+### Docker
 
-本プロジェクトは、以下の論文で発表されました。研究や成果物で利用する場合は、こちらを引用してください。
+1. Pull the image:
+   ```sh
+   docker pull ghcr.io/mryutaro/elastickernel
+   ```
+
+2. Start a container:
+   ```sh
+   docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
+   ```
+
+3. Open JupyterLab in your browser.
+
+4. Select the **Python 3 (ElasticKernel)** kernel.
+
+## How It Works
+
+ElasticKernel extends the IPython kernel to observe each cell execution. As you run cells it
+builds a **dependency graph** of variables and the cell executions that produce them. When the
+kernel shuts down or restarts, it profiles serialization speed, runs a cost optimizer to split
+variables into a *migrate* set (serialized to disk) and a *recompute* set (regenerated by
+re-running cells), and writes a checkpoint. On the next start it loads the checkpoint, injects
+the migrated variables back into your namespace, and recomputes the rest.
+
+## Documentation
+
+- **Developer guide:** [docs/DEVELOPERS.md](docs/DEVELOPERS.md)
+- **日本語 README:** [README.ja.md](README.ja.md)
+
+## Publication
+
+This project was presented in the following paper. If you use ElasticKernel in your research,
+please cite:
 
 > R. Matsumoto, K. Taniguchi, T. Hayami, K. Takahashi, and S. Date.
 > "ElasticHub: A Cost-Efficient JupyterHub Platform via Automated Scaling with Kubernetes on Hybrid Cloud."
@@ -82,9 +119,12 @@ docker run -p 8888:8888 ghcr.io/mryutaro/elastickernel
 ## Acknowledgments
 
 This project includes code from [ElasticNotebook](https://github.com/illinoisdata/ElasticNotebook),
-developed at the University of Illinois.
-ElasticNotebook is licensed under the Apache License 2.0.
+developed at the University of Illinois. ElasticNotebook is licensed under the Apache License 2.0.
 
 > Zhaoheng Li, Pranav Gor, Rahul Prabhu, Hui Yu, Yuzhou Mao, Yongjoo Park.
 > "ElasticNotebook: Enabling Live Migration for Computational Notebooks."
 > Proceedings of the VLDB Endowment, Vol. 17, No. 2, pp. 119-133, 2023.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
