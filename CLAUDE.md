@@ -175,6 +175,20 @@ uv run pytest
 - デモ動画の名前は `ipykernel` と `elastickernel` のみを使う。`-edited` などのサフィックスは付けない。
 - README内でのデモ動画のインライン再生には、リポジトリ内ファイルの `raw` URL ではなく、GitHubにドラッグ&ドロップでアップロードして得られる `https://github.com/user-attachments/assets/...` のURLを `<video src>` に指定する（raw URL は Content-Type と CSP の制約でインライン再生されない）。
 
+## 開発の進め方（worktree / ブランチ）
+
+- 特に指示がない限り、開発を始める前に **worktree を作成し、専用のブランチを切ってから** 作業する。
+- ただし機械的にそうするのではなく、まず **その作業に worktree / ブランチが本当に必要かを考える**。たとえば次のような軽微な作業は、現在のブランチでそのまま進めてよい（worktree を作らない）:
+  - 単発のドキュメント修正・typo 修正
+  - 質問への回答や調査のみで、コード変更を伴わない作業
+  - すでに作業用ブランチ上にいて、その作業の続きをしている場合
+- 規模が大きい、複数ファイルにまたがる、main 上で作業しそうになっている、並行して別の作業が走る、などの場合は worktree + ブランチを作成する。
+
+## PR作成時の注意
+
+- PR を作成するとき、対応する Issue がある場合は PR 本文に `close #<issue番号>` を記載して、PR のマージ時に Issue が自動で close されるようにする（複数 Issue がある場合はそれぞれに `close #<issue番号>` を書く）。
+- `close` のほか `closes` / `closed` / `fix` / `fixes` / `fixed` / `resolve` / `resolves` / `resolved` も同じく自動 close キーワードとして使える。
+
 ## 開発時のテスト
 
 カーネルの変更をテストするには：
