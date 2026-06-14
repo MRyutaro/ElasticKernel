@@ -1,10 +1,13 @@
 import hashlib
 import json
 import logging
+import logging.handlers
 import os
 import time
 import traceback
 import urllib
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 
 from ipykernel.ipkernel import IPythonKernel
@@ -294,16 +297,18 @@ class ElasticKernel(IPythonKernel):
 
         self.logger.debug(f"Executing Code:\n{code}")
 
+        skip_record = self.__skip_record(code)
+
         pre_execution_user_ns = (
-            set(self.shell.user_ns.keys()) if not self.__skip_record(code) else None
+            set(self.shell.user_ns.keys()) if not skip_record else None
         )
-        start_time = time.time() if not self.__skip_record(code) else None
+        start_time = time.time() if not skip_record else None
 
         result = await super().do_execute(
             code, silent, store_history, user_expressions, allow_stdin
         )
 
-        if not self.__skip_record(code):
+        if not skip_record:
             cell_runtime = time.time() - start_time
             self.logger.debug(f"Cell runtime: {cell_runtime}")
             self.elastic_notebook.record_event(
