@@ -169,6 +169,12 @@ uv run pytest
 - dillをシリアライゼーションに使用（Pythonオブジェクトに対してpickleより強力）
 - マイグレーション速度のプロファイリングは `alpha` パラメータを使用してコストスケーリングを調整
 
+## README編集時の注意
+
+- `README.md`（英語）と `README.ja.md`（日本語）は内容を**常に同期**させる。片方を修正したら必ずもう片方にも同じ修正を反映する。
+- デモ動画の名前は `ipykernel` と `elastickernel` のみを使う。`-edited` などのサフィックスは付けない。
+- README内でのデモ動画のインライン再生には、リポジトリ内ファイルの `raw` URL ではなく、GitHubにドラッグ&ドロップでアップロードして得られる `https://github.com/user-attachments/assets/...` のURLを `<video src>` に指定する（raw URL は Content-Type と CSP の制約でインライン再生されない）。
+
 ## 開発時のテスト
 
 カーネルの変更をテストするには：

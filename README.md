@@ -21,8 +21,8 @@ The same workflow in both clips: define a variable `a = 1`, then **restart the k
 <th align="center">ElasticKernel</th>
 </tr>
 <tr>
-<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/ipykernel.mp4" controls muted></video></td>
-<td width="50%"><video src="https://github.com/MRyutaro/ElasticKernel/raw/main/docs/assets/elastickernel.mp4" controls muted></video></td>
+<td width="50%"><video src="https://github.com/user-attachments/assets/9ba4d267-20e8-4b06-a3ea-869c19687f81" controls muted></video></td>
+<td width="50%"><video src="https://github.com/user-attachments/assets/9f3c7acc-2ae9-4f98-873c-60f37f1a434e" controls muted></video></td>
 </tr>
 <tr>
 <td align="center">❌ After the restart, <code>a</code> is <b>gone</b> — <code>%whos</code> reports <i>"Interactive namespace is empty."</i></td>
