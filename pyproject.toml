@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "elastic-kernel"
-version = "0.0.28"
+version = "0.0.29"
 description = "An IPython Kernel that automatically saves and restores Jupyter Notebook execution states."
 authors = [
     { name = "ryutarom", email = "m2002r1028@icloud.com" }
