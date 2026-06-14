@@ -58,6 +58,9 @@ class ElasticKernel(IPythonKernel):
         # ===========================================
 
         # ElasticNotebookをロードする
+        # 生成に失敗した場合は None のままにし、以降は「追跡なしの素のカーネル」として
+        # 動作を継続する（毎セルで AttributeError を吐き続けないようにする）。(D-13)
+        self.elastic_notebook = None
         try:
             self.elastic_notebook = ElasticNotebook(
                 shell=self.shell,
@@ -66,9 +69,14 @@ class ElasticKernel(IPythonKernel):
             self.logger.info("ElasticNotebook successfully loaded.")
         except Exception as e:
             self.logger.error(f"Error loading ElasticNotebook: {e}")
+            self.logger.error(
+                "Continuing without checkpoint tracking (plain kernel mode)."
+            )
 
         # チェックポイントファイルをロードする
-        if os.path.exists(self.checkpoint_file_path):
+        if self.elastic_notebook is not None and os.path.exists(
+            self.checkpoint_file_path
+        ):
             self.logger.info("Checkpoint file exists. Loading checkpoint.")
             try:
                 start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
@@ -222,6 +230,8 @@ class ElasticKernel(IPythonKernel):
         """
         %whoで表示されるようにするために復元した変数をself.shell.user_ns_hiddenから削除する
         """
+        if self.elastic_notebook is None:
+            return
         variable_snapshots = set(
             self.elastic_notebook.dependency_graph.variable_snapshots
         )
@@ -281,6 +291,8 @@ class ElasticKernel(IPythonKernel):
             self.logger.debug("Skipping record event")
         elif not execution_succeeded:
             self.logger.debug("Skipping record event for failed cell execution")
+        elif self.elastic_notebook is None:
+            self.logger.debug("Skipping record event (ElasticNotebook unavailable)")
         else:
             cell_runtime = time.time() - start_time
             self.logger.debug(f"Cell runtime: {cell_runtime}")
@@ -295,6 +307,12 @@ class ElasticKernel(IPythonKernel):
         """
         カーネル終了時に呼び出されるメソッド
         """
+        # ElasticNotebook の生成に失敗していた場合はチェックポイントを保存できないので
+        # スキップして通常のシャットダウンを継続する。(D-13)
+        if self.elastic_notebook is None:
+            self.logger.info("ElasticNotebook unavailable; skipping checkpoint save.")
+            return super().do_shutdown(restart)
+
         try:
             start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
                 "%Y-%m-%dT%H:%M:%S.%f%z"
