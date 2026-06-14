@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import logging.handlers
 import os
 import time
 import traceback
@@ -13,20 +12,7 @@ from datetime import datetime, timedelta, timezone
 from ipykernel.ipkernel import IPythonKernel
 
 from elastic_notebook import ElasticNotebook
-
-
-class JSTFormatter(logging.Formatter):
-    """日本時間（JST）用のログフォーマッター"""
-
-    def converter(self, timestamp):
-        dt = datetime.fromtimestamp(timestamp)
-        return dt.astimezone(timezone(timedelta(hours=9)))  # UTC+9
-
-    def formatTime(self, record, datefmt=None):
-        dt = self.converter(record.created)
-        if datefmt:
-            return dt.strftime(datefmt)
-        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # マイクロ秒を3桁まで表示
+from elastic_notebook.core.common.logging_setup import setup_logger
 
 
 class ElasticKernel(IPythonKernel):
@@ -230,28 +216,7 @@ class ElasticKernel(IPythonKernel):
         """
         ロガーの設定
         """
-        # ロガーの設定
-        self.logger = logging.getLogger("ElasticKernelLogger")
-
-        # 環境変数からログレベルを取得
-        log_level_str = os.environ.get("ELASTIC_KERNEL_LOG_LEVEL", "INFO").upper()
-        log_level = getattr(logging, log_level_str, logging.INFO)
-        self.logger.setLevel(log_level)
-
-        formatter = JSTFormatter(
-            "[%(asctime)s %(name)s %(filename)s:%(lineno)d %(levelname)s] %(message)s",
-            "%Y-%m-%d %H:%M:%S.%f",
-        )
-
-        # ローテーティングファイルハンドラー
-        rotating_file_handler = logging.handlers.RotatingFileHandler(
-            self.log_file_path,
-            maxBytes=5 * 1024 * 1024,
-            backupCount=5,  # 5MBのログサイズでローテーション、5世代保存
-        )
-        rotating_file_handler.setLevel(log_level)
-        rotating_file_handler.setFormatter(formatter)
-        self.logger.addHandler(rotating_file_handler)
+        self.logger = setup_logger("ElasticKernelLogger", self.log_file_path)
 
     def __del_from_user_ns_hidden(self):
         """
@@ -308,15 +273,21 @@ class ElasticKernel(IPythonKernel):
             code, silent, store_history, user_expressions, allow_stdin
         )
 
-        if not skip_record:
+        # Q3: 実行が成功したセルのみ記録する。失敗したセルを記録すると、依存グラフに
+        # 「実行されたセル」として残り、復元のたびに再計算（再実行）されてしまうため。
+        execution_succeeded = isinstance(result, dict) and result.get("status") == "ok"
+
+        if skip_record:
+            self.logger.debug("Skipping record event")
+        elif not execution_succeeded:
+            self.logger.debug("Skipping record event for failed cell execution")
+        else:
             cell_runtime = time.time() - start_time
             self.logger.debug(f"Cell runtime: {cell_runtime}")
             self.elastic_notebook.record_event(
                 code, pre_execution_user_ns, start_time, cell_runtime
             )
             self.logger.debug("Recording event")
-        else:
-            self.logger.debug("Skipping record event")
 
         return result
 

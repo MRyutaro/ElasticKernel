@@ -39,14 +39,14 @@ def test_migrate_resume_round_trip(fake_shell, tmp_path):
         filename=path,
     )
 
-    graph2, variables, ces_to_recompute, udfs = resume(path)
+    metadata, variables = resume(path)
 
     recovered = _flatten(variables)
     assert recovered["x"] == 42
     assert np.array_equal(recovered["a"], np.arange(3))
-    assert udfs == {"foo"}
-    assert ces_to_recompute == set()
-    assert isinstance(graph2, DependencyGraph)
+    assert metadata.get_udfs() == {"foo"}
+    assert metadata.get_ces_to_recompute() == set()
+    assert isinstance(metadata.get_dependency_graph(), DependencyGraph)
 
 
 def test_resume_returns_ces_to_recompute_from_file(fake_shell, tmp_path):
@@ -71,7 +71,8 @@ def test_resume_returns_ces_to_recompute_from_file(fake_shell, tmp_path):
         filename=path,
     )
 
-    _, _, ces_to_recompute, _ = resume(path)
+    metadata, _ = resume(path)
+    ces_to_recompute = metadata.get_ces_to_recompute()
     assert len(ces_to_recompute) == 1
     assert next(iter(ces_to_recompute)).cell_num == 0
 
@@ -79,12 +80,10 @@ def test_resume_returns_ces_to_recompute_from_file(fake_shell, tmp_path):
 def test_resume_tolerates_corrupt_variable_group(tmp_path):
     """A variable group that fails to unpickle must not crash resume().
 
-    D-2: the current implementation re-reads the whole file at recover.py:53,
-    which OVERWRITES the in-memory metadata and therefore DISCARDS the
-    ces_to_recompute additions made in the except-branch. So the fault-tolerance
-    fallback is effectively a no-op today. This test pins that buggy behavior;
-    it must be flipped (ces_to_recompute should contain ce0) once D-2 is fixed
-    in Phase 4.
+    D-2 (fixed in Phase 4): when a variable group fails to unpickle, resume()
+    falls back to recomputation by adding the relevant CEs to ces_to_recompute.
+    Previously this update was silently discarded by a redundant re-read of the
+    file; now resume() returns the in-memory metadata so the fallback takes effect.
     """
     g = DependencyGraph()
     vs_x = g.create_variable_snapshot("x", False)
@@ -110,10 +109,11 @@ def test_resume_tolerates_corrupt_variable_group(tmp_path):
         f.write(b"this is not a valid pickle stream")
 
     # resume must not raise even though the variable group is unreadable.
-    _, variables, ces_to_recompute, _ = resume(str(path))
+    metadata, variables = resume(str(path))
+    ces_to_recompute = metadata.get_ces_to_recompute()
 
     # No variables were recovered.
     assert dict(variables) == {}
-    # D-2 (current/buggy): the recompute fallback is discarded by the re-read.
-    # Flip this assertion to `len(ces_to_recompute) == 1` after fixing D-2.
-    assert ces_to_recompute == set()
+    # D-2 (fixed): the fault-tolerance fallback now adds ce0 to ces_to_recompute.
+    assert len(ces_to_recompute) == 1
+    assert next(iter(ces_to_recompute)).cell_num == 0
