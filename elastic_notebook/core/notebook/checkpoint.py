@@ -56,6 +56,14 @@ def checkpoint(
     profiled_count = 0
     for i, active_vs in enumerate(active_vss):
         logger.debug(f"Profiling variable {i+1}/{len(active_vss)}: {active_vs.name}")
+        # グラフ上はアクティブでも user_ns に存在しない変数はプロファイル/マイグレート
+        # できないため、サイズを無限大（マイグレーション対象外）として扱い KeyError を避ける。
+        if active_vs.name not in shell.user_ns:
+            active_vs.size = np.inf
+            logger.debug(
+                f"  Variable '{active_vs.name}' not in user_ns; skipping profiling"
+            )
+            continue
         attr_str = getattr(shell.user_ns[active_vs.name], "__module__", None)
         # Object is unserializable
         if active_vs.name in fingerprint_dict and isinstance(
@@ -82,9 +90,16 @@ def checkpoint(
     overlapping_vss = []
     for active_vs1 in active_vss:
         for active_vs2 in active_vss:
-            if active_vs1 != active_vs2 and fingerprint_dict[active_vs1.name][
-                1
-            ].intersection(fingerprint_dict[active_vs2.name][1]):
+            # fingerprint_dict に未登録の変数（例: 復元直後にマジックのみ実行した場合）が
+            # あっても KeyError にならないよう存在チェックを行う（issue #26）。
+            if (
+                active_vs1 != active_vs2
+                and active_vs1.name in fingerprint_dict
+                and active_vs2.name in fingerprint_dict
+                and fingerprint_dict[active_vs1.name][1].intersection(
+                    fingerprint_dict[active_vs2.name][1]
+                )
+            ):
                 overlapping_vss.append((active_vs1, active_vs2))
 
     profile_end = time.time()
