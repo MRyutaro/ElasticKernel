@@ -43,6 +43,7 @@ def profile_migration_speed(dirname: str, alpha=1) -> float:
 
         read_start = time.time()
         in_file = open(os.path.join(testing_dir, str(i)) + "large", "rb")
+        in_file.read()  # D-11: actually read the bytes so read speed is measured
         in_file.close()
         total_read_time += time.time() - read_start
 
@@ -54,6 +55,7 @@ def profile_migration_speed(dirname: str, alpha=1) -> float:
 
         read_start = time.time()
         in_file = open(os.path.join(testing_dir, str(i) + "small"), "rb")
+        in_file.read()  # D-11: actually read the bytes so read speed is measured
         in_file.close()
         total_read_time -= time.time() - read_start
 
