@@ -25,3 +25,6 @@ dist/
 
 .checkpoint*/
 .workspace/
+
+# Scratch dir for scripts/library_coverage.py (issue #48)
+.library_coverage/

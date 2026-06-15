@@ -90,6 +90,32 @@ ElasticKernel はこの手間をまるごと無くします。
 
 4. **Python 3 (ElasticKernel)** のカーネルを選択する
 
+## 対応ライブラリ
+
+ElasticKernel は任意の Python オブジェクトをチェックポイントしますが、その方法はライブラリに
+よって変わります。CI は以下のライブラリについて `record_event → checkpoint → load_checkpoint`
+の往復を継続的に検証し、3 値で分類します。
+
+- ✅ **Migrated** — dill でシリアライズして移行（コスト最適化された経路）。
+- ♻️ **Recomputed** — シリアライズ不可だが、セル再実行で復元できる（フォールバックが機能）。
+- ❌ **Failed** — 復元できない、または値が一致しない。
+
+この表は [`scripts/library_coverage.py`](scripts/library_coverage.py) が生成し、
+[`library-coverage`](.github/workflows/library-coverage.yml) ワークフローが同期します。
+
+<!-- BEGIN LIBRARY COVERAGE -->
+| Library | Result | Verified version |
+| --- | --- | --- |
+| `numpy` (numpy) | ✅ Migrated | 2.3.4 |
+| `pandas` (pandas) | ✅ Migrated | 3.0.3 |
+| `scipy` (scipy) | ✅ Migrated | 1.17.1 |
+| `sklearn` (scikit-learn) | ✅ Migrated | 1.9.0 |
+| `matplotlib` (matplotlib) | ✅ Migrated | 3.11.0 |
+| `seaborn` (seaborn) | ✅ Migrated | 0.13.2 |
+| `cv2` (opencv (cv2)) | ✅ Migrated | 4.13.0.92 |
+| `requests` (requests) | ✅ Migrated | 2.32.5 |
+<!-- END LIBRARY COVERAGE -->
+
 ## 仕組み
 
 ElasticKernel は IPython カーネルを拡張し、各セルの実行を監視します。セルを実行するたびに、変数と「それを生成したセル実行」の**依存関係グラフ**を構築します。カーネルの終了・再起動時には、シリアライズ速度をプロファイルし、コストオプティマイザを実行して変数を *migrate* セット（ディスクへシリアライズ）と *recompute* セット（セル再実行で再生成）に分割し、チェックポイントを書き込みます。次回起動時にはチェックポイントを読み込み、migrate した変数を名前空間に注入し、残りを再計算します。
