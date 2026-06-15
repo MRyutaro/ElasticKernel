@@ -9,6 +9,10 @@ on:
       - "main"
   workflow_dispatch:
 
+# Needed so the job can commit the regenerated coverage table back to the branch.
+permissions:
+  contents: write
+
 jobs:
   library-coverage:
     runs-on: ubuntu-latest
@@ -16,13 +20,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # Check out the actual branch (the PR head, or main on push) so the
+          # auto-committed table lands on it rather than on a detached merge ref.
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          # Pinned so the verified-version table in the READMEs is reproducible:
-          # scripts/library_coverage.py reads the installed versions, and the drift
-          # check below compares them against the committed table.
+          # Pinned so the verified-version column is reproducible: the table records
+          # the installed versions, which depend on the interpreter.
           python-version: "3.11"
 
       - name: Install dependencies (with coverage group)
@@ -31,5 +38,24 @@ jobs:
       - name: Run round-trip coverage tests
         run: uv run pytest tests/test_library_coverage.py -v
 
-      - name: Verify README coverage table is up to date
-        run: uv run python scripts/library_coverage.py --check
+      - name: Regenerate the coverage table in the READMEs
+        # Writes the table between the markers and appends it to the job's Step Summary.
+        run: uv run python scripts/library_coverage.py
+
+      - name: Commit the table if it changed
+        # Skip on pull requests from forks, where GITHUB_TOKEN is read-only. A commit
+        # pushed with GITHUB_TOKEN does not trigger another workflow run, so this does
+        # not loop.
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet -- README.md README.ja.md; then
+            echo "Coverage table already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md README.ja.md
+          git commit -m "docs: update library coverage table [skip ci]"
+          git push
