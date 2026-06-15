@@ -5,6 +5,7 @@
 ElasticKernel は、ノートブックの実行状態を**自動でチェックポイントし、再起動やクラッシュの後でも復元する**カスタム IPython カーネルです。手動の `pickle.dump` は不要。作業を中断したところからそのまま再開できます。
 
 [![PyPI version](https://img.shields.io/pypi/v/elastic-kernel.svg)](https://pypi.org/project/elastic-kernel/)
+[![Python versions](https://img.shields.io/pypi/pyversions/elastic-kernel.svg)](https://pypi.org/project/elastic-kernel/)
 [![Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/elastic-kernel)
 [![Downloads/month](https://static.pepy.tech/personalized-badge/elastic-kernel?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/elastic-kernel)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -89,6 +90,20 @@ ElasticKernel はこの手間をまるごと無くします。
 3. ブラウザから JupyterLab にアクセスする
 
 4. **Python 3 (ElasticKernel)** のカーネルを選択する
+
+## 対応バージョン
+
+ElasticKernel は push / pull request のたびに、複数の Python バージョンからなる CI マトリクスで
+テストされます。チェックポイントの**保存 → 復元の往復**（`record_event → checkpoint →
+load_checkpoint`）が各バージョンで通ることを検証しています。
+
+| コンポーネント | 検証済みバージョン |
+| --- | --- |
+| Python | 3.9, 3.10, 3.11, 3.12, 3.13 |
+| ipykernel / jupyterlab | 上記各 Python と互換な最新リリース（`uv sync` が解決） |
+
+> Python 3.8 は 2024 年 10 月に EOL を迎えたため、テスト対象から外しています。バージョン
+> マトリクスは [`.github/workflows/test.yml`](.github/workflows/test.yml) にあります。
 
 ## 仕組み
 
