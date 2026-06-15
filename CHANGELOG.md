@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.34](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.33...v0.0.34) (2026-06-15)
+
+
+### Bug Fixes
+
+* hash datetime64 arrays in object_hash instead of crashing ([ded6738](https://github.com/MRyutaro/ElasticKernel/commit/ded67389ad7ba55ecbf328e449732b14f8b1c834))
+* hash datetime64 arrays in object_hash instead of crashing ([6423d66](https://github.com/MRyutaro/ElasticKernel/commit/6423d669af5f992248506151b6588e9215d8927c)), closes [#60](https://github.com/MRyutaro/ElasticKernel/issues/60)
+
 ## [0.0.33](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.32...v0.0.33) (2026-06-14)
 
 
