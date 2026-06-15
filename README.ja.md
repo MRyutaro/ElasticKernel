@@ -133,7 +133,7 @@ CI は以下の**各ライブラリについて複数の代表的なオブジェ
 | numpy | `ndarray` | ✅ | ✅ | 2.3.4 |
 |  | `structured array` | ✅ | ✅ | 2.3.4 |
 |  | `masked array` | ✅ | ✅ | 2.3.4 |
-|  | `datetime64 array` | ❌ | ❌ | 2.3.4 |
+|  | `datetime64 array` | ✅ | ✅ | 2.3.4 |
 | pandas | `DataFrame` | ✅ | ✅ | 3.0.3 |
 |  | `Series` | ✅ | ✅ | 3.0.3 |
 |  | `Series (category)` | ✅ | ✅ | 3.0.3 |

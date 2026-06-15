@@ -245,7 +245,17 @@ def construct_object_hash(obj, deepcopy=False):
 
     if isinstance(obj, np.ndarray):
         h = xxhash.xxh3_128()
-        h.update(np.ascontiguousarray(obj.data))
+        arr = np.ascontiguousarray(obj)
+        try:
+            # Hash the raw bytes. Viewing as uint8 lets datetime64/timedelta64 ('M'/'m')
+            # arrays be hashed too: their dtype cannot be exposed via the buffer protocol
+            # directly, which otherwise raises "cannot include dtype 'M' in a buffer"
+            # (issue #60).
+            buffer = arr.view(np.uint8)
+        except (ValueError, TypeError):
+            # Object-dtype arrays cannot be reinterpreted; hash their raw bytes instead.
+            buffer = arr.tobytes()
+        h.update(buffer)
         str1 = h.intdigest()
         return NpArrayObj(str1)
 

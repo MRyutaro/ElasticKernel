@@ -425,9 +425,8 @@ SPECIMENS_BY_KEY = {s.key: s for s in SPECIMENS}
 # documented (shown as ❌ in the coverage table) rather than hidden, and the test gate
 # tolerates them instead of asserting success -- but the drift check still guards against
 # anything *else* regressing into this state.
-#   - numpy-datetime64: object_hash hashes the array buffer, and datetime64 ('M') arrays
-#     cannot be exposed as a buffer -> "cannot include dtype 'M' in a buffer".
-KNOWN_LIMITATIONS = {"numpy-datetime64"}
+#   (none currently -- numpy-datetime64 was fixed in #60.)
+KNOWN_LIMITATIONS: set = set()
 
 # Force the optimizer one way or the other. A near-infinite migration speed makes
 # migrating effectively free (so anything serializable is migrated); a near-zero speed
