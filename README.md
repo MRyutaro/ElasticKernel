@@ -135,7 +135,7 @@ kept in sync by the [`library-coverage`](.github/workflows/library-coverage.yml)
 | numpy | `ndarray` | ✅ | ✅ | 2.3.4 |
 |  | `structured array` | ✅ | ✅ | 2.3.4 |
 |  | `masked array` | ✅ | ✅ | 2.3.4 |
-|  | `datetime64 array` | ❌ | ❌ | 2.3.4 |
+|  | `datetime64 array` | ✅ | ✅ | 2.3.4 |
 | pandas | `DataFrame` | ✅ | ✅ | 3.0.3 |
 |  | `Series` | ✅ | ✅ | 3.0.3 |
 |  | `Series (category)` | ✅ | ✅ | 3.0.3 |
