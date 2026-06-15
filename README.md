@@ -5,6 +5,7 @@
 ElasticKernel is a custom IPython kernel that **automatically checkpoints your notebook's execution state and restores it after a restart or crash** — no manual `pickle.dump` required. Pick up exactly where you left off.
 
 [![PyPI version](https://img.shields.io/pypi/v/elastic-kernel.svg)](https://pypi.org/project/elastic-kernel/)
+[![Python versions](https://img.shields.io/pypi/pyversions/elastic-kernel.svg)](https://pypi.org/project/elastic-kernel/)
 [![Downloads](https://static.pepy.tech/personalized-badge/elastic-kernel?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/elastic-kernel)
 [![Downloads/month](https://static.pepy.tech/personalized-badge/elastic-kernel?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/elastic-kernel)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -92,6 +93,20 @@ ElasticKernel removes that chore entirely:
 3. Open JupyterLab in your browser.
 
 4. Select the **Python 3 (ElasticKernel)** kernel.
+
+## Supported versions
+
+ElasticKernel is tested on every push and pull request against a CI matrix of Python
+versions. The checkpoint **save → restore round trip** (`record_event → checkpoint →
+load_checkpoint`) is verified on each of them.
+
+| Component | Verified versions |
+| --- | --- |
+| Python | 3.9, 3.10, 3.11, 3.12, 3.13 |
+| ipykernel / jupyterlab | latest release compatible with each Python above (resolved by `uv sync`) |
+
+> Python 3.8 reached end-of-life in October 2024 and is no longer tested. The version
+> matrix lives in [`.github/workflows/test.yml`](.github/workflows/test.yml).
 
 ## Supported libraries
 
