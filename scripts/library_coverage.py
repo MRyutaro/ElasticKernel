@@ -89,12 +89,16 @@ def build_table(workdir: str) -> str:
         "| Library | Object | Migrate | Recompute | Verified version |",
         "| --- | --- | :---: | :---: | --- |",
     ]
+    prev_library = None
     for spec in SPECIMENS:
-        result = _classify(spec, os.path.join(workdir, spec.key.replace(" ", "_")))
+        result = _classify(spec, os.path.join(workdir, spec.key))
         migrate = _MIGRATE_SYMBOL.get(result.get("migrate"), "❓")
         recompute = _RECOMPUTE_SYMBOL.get(result.get("recompute"), "❓")
+        # Show the library name only on its first row to keep the grouping readable.
+        library = "" if spec.library == prev_library else spec.library
+        prev_library = spec.library
         rows.append(
-            f"| `{spec.module}` ({spec.key}) | `{spec.object_type}` "
+            f"| {library} | `{spec.object_type}` "
             f"| {migrate} | {recompute} | {_version(spec.pip_name)} |"
         )
     return "\n".join(rows)

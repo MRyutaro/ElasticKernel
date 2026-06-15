@@ -114,11 +114,15 @@ ElasticKernel はチェックポイントしたオブジェクトを 2 通りの
 - **Migrate（移行）** — dill でシリアライズして再ロードする。
 - **Recompute（再計算）** — そのオブジェクトを生成したセルを再実行する。
 
-CI は以下の**各ライブラリの代表的なオブジェクトを 1 つずつ**検証し（ライブラリには多様な
-オブジェクト型があるため、1 型のサンプル検証であってライブラリ全体の保証ではありません）、
-各復元パスでオブジェクトが再現できるかを示します。
+CI は以下の**各ライブラリについて複数の代表的なオブジェクト型**を検証し（ライブラリには
+多様なオブジェクト型があるため、サンプル検証であってライブラリ全体の保証ではありません）、
+各復元パスでそれぞれのオブジェクトが再現できるかを示します。
 
-凡例: ✅ 正しく復元 ・ ➖ シリアライズ不可のため Migrate は対象外（Recompute を使用） ・ ❌ 失敗
+凡例:
+
+- ✅ — このパスで正しく復元できた。
+- ➖ — シリアライズ不可のため Migrate は対象外（ElasticKernel は Recompute を使用）。
+- ❌ — 失敗（復元できない、または既知の限界）。
 
 この表は [`scripts/library_coverage.py`](scripts/library_coverage.py) が生成し、
 [`library-coverage`](.github/workflows/library-coverage.yml) ワークフローが同期します。
@@ -126,14 +130,28 @@ CI は以下の**各ライブラリの代表的なオブジェクトを 1 つず
 <!-- BEGIN LIBRARY COVERAGE -->
 | Library | Object | Migrate | Recompute | Verified version |
 | --- | --- | :---: | :---: | --- |
-| `numpy` (numpy) | `ndarray` | ✅ | ✅ | 2.3.4 |
-| `pandas` (pandas) | `DataFrame` | ✅ | ✅ | 3.0.3 |
-| `scipy` (scipy) | `csr_matrix (sparse)` | ✅ | ✅ | 1.17.1 |
-| `sklearn` (scikit-learn) | `LinearRegression (fitted)` | ✅ | ✅ | 1.9.0 |
-| `matplotlib` (matplotlib) | `Figure` | ✅ | ✅ | 3.11.0 |
-| `seaborn` (seaborn) | `FacetGrid` | ✅ | ✅ | 0.13.2 |
-| `cv2` (opencv (cv2)) | `ndarray (image)` | ✅ | ✅ | 4.13.0.92 |
-| `requests` (requests) | `Response` | ✅ | ✅ | 2.32.5 |
+| numpy | `ndarray` | ✅ | ✅ | 2.3.4 |
+|  | `structured array` | ✅ | ✅ | 2.3.4 |
+|  | `masked array` | ✅ | ✅ | 2.3.4 |
+|  | `datetime64 array` | ❌ | ❌ | 2.3.4 |
+| pandas | `DataFrame` | ✅ | ✅ | 3.0.3 |
+|  | `Series` | ✅ | ✅ | 3.0.3 |
+|  | `Series (category)` | ✅ | ✅ | 3.0.3 |
+|  | `DataFrame (DatetimeIndex)` | ✅ | ✅ | 3.0.3 |
+| scipy | `csr_matrix (sparse)` | ✅ | ✅ | 1.17.1 |
+|  | `csc_matrix (sparse)` | ✅ | ✅ | 1.17.1 |
+|  | `stats frozen distribution` | ✅ | ✅ | 1.17.1 |
+| scikit-learn | `LinearRegression (fitted)` | ✅ | ✅ | 1.9.0 |
+|  | `StandardScaler (fitted)` | ✅ | ✅ | 1.9.0 |
+|  | `RandomForestClassifier (fitted)` | ✅ | ✅ | 1.9.0 |
+| matplotlib | `Figure (line plot)` | ✅ | ✅ | 3.11.0 |
+|  | `Figure (imshow)` | ✅ | ✅ | 3.11.0 |
+| seaborn | `FacetGrid` | ✅ | ✅ | 0.13.2 |
+|  | `Axes (scatterplot)` | ✅ | ✅ | 0.13.2 |
+| opencv (cv2) | `ndarray (grayscale image)` | ✅ | ✅ | 4.13.0.92 |
+|  | `ndarray (color image)` | ✅ | ✅ | 4.13.0.92 |
+| requests | `Response` | ✅ | ✅ | 2.32.5 |
+|  | `Session` | ✅ | ✅ | 2.32.5 |
 <!-- END LIBRARY COVERAGE -->
 
 ## 仕組み
