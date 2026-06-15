@@ -78,6 +78,18 @@ dev = [
     "twine>=6.1.0",
 ]
 
+# Libraries whose checkpoint round-trip coverage is verified in CI (issue #48).
+# Kept in sync with tests/library_specimens.py. CPU-only builds; no GPU stacks.
+coverage = [
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "opencv-python-headless",
+    "requests",
+]
+
 [tool.uv.sources]
 # “torch” パッケージは常に “pytorch-cpu” インデックスからのみ取得
 torch = { index = "pytorch-cpu" }

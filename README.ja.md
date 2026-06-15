@@ -105,6 +105,55 @@ load_checkpoint`）が各バージョンで通ることを検証しています�
 > Python 3.8 は 2024 年 10 月に EOL を迎えたため、テスト対象から外しています。バージョン
 > マトリクスは [`.github/workflows/test.yml`](.github/workflows/test.yml) にあります。
 
+## 対応ライブラリ
+
+ElasticKernel はチェックポイントしたオブジェクトを 2 通りの方法で復元でき、どちらを使うかは
+チェックポイント時にコスト最適化（min-cut）が**オブジェクトごとに**決めます。どちらか一方が
+単なるフォールバックというわけではありません。
+
+- **Migrate（移行）** — dill でシリアライズして再ロードする。
+- **Recompute（再計算）** — そのオブジェクトを生成したセルを再実行する。
+
+CI は以下の**各ライブラリについて複数の代表的なオブジェクト型**を検証し（ライブラリには
+多様なオブジェクト型があるため、サンプル検証であってライブラリ全体の保証ではありません）、
+各復元パスでそれぞれのオブジェクトが再現できるかを示します。
+
+凡例:
+
+- ✅ — このパスで正しく復元できた。
+- ➖ — シリアライズ不可のため Migrate は対象外（ElasticKernel は Recompute を使用）。
+- ❌ — 失敗（復元できない、または既知の限界）。
+
+この表は [`scripts/library_coverage.py`](scripts/library_coverage.py) が生成し、
+[`library-coverage`](.github/workflows/library-coverage.yml) ワークフローが同期します。
+
+<!-- BEGIN LIBRARY COVERAGE -->
+| Library | Object | Migrate | Recompute | Verified version |
+| --- | --- | :---: | :---: | --- |
+| numpy | `ndarray` | ✅ | ✅ | 2.3.4 |
+|  | `structured array` | ✅ | ✅ | 2.3.4 |
+|  | `masked array` | ✅ | ✅ | 2.3.4 |
+|  | `datetime64 array` | ❌ | ❌ | 2.3.4 |
+| pandas | `DataFrame` | ✅ | ✅ | 3.0.3 |
+|  | `Series` | ✅ | ✅ | 3.0.3 |
+|  | `Series (category)` | ✅ | ✅ | 3.0.3 |
+|  | `DataFrame (DatetimeIndex)` | ✅ | ✅ | 3.0.3 |
+| scipy | `csr_matrix (sparse)` | ✅ | ✅ | 1.17.1 |
+|  | `csc_matrix (sparse)` | ✅ | ✅ | 1.17.1 |
+|  | `stats frozen distribution` | ✅ | ✅ | 1.17.1 |
+| scikit-learn | `LinearRegression (fitted)` | ✅ | ✅ | 1.9.0 |
+|  | `StandardScaler (fitted)` | ✅ | ✅ | 1.9.0 |
+|  | `RandomForestClassifier (fitted)` | ✅ | ✅ | 1.9.0 |
+| matplotlib | `Figure (line plot)` | ✅ | ✅ | 3.11.0 |
+|  | `Figure (imshow)` | ✅ | ✅ | 3.11.0 |
+| seaborn | `FacetGrid` | ✅ | ✅ | 0.13.2 |
+|  | `Axes (scatterplot)` | ✅ | ✅ | 0.13.2 |
+| opencv (cv2) | `ndarray (grayscale image)` | ✅ | ✅ | 4.13.0.92 |
+|  | `ndarray (color image)` | ✅ | ✅ | 4.13.0.92 |
+| requests | `Response` | ✅ | ✅ | 2.32.5 |
+|  | `Session` | ✅ | ✅ | 2.32.5 |
+<!-- END LIBRARY COVERAGE -->
+
 ## 仕組み
 
 ElasticKernel は IPython カーネルを拡張し、各セルの実行を監視します。セルを実行するたびに、変数と「それを生成したセル実行」の**依存関係グラフ**を構築します。カーネルの終了・再起動時には、シリアライズ速度をプロファイルし、コストオプティマイザを実行して変数を *migrate* セット（ディスクへシリアライズ）と *recompute* セット（セル再実行で再生成）に分割し、チェックポイントを書き込みます。次回起動時にはチェックポイントを読み込み、migrate した変数を名前空間に注入し、残りを再計算します。
