@@ -1,24 +1,30 @@
 """Single source of truth for the library checkpoint-coverage matrix (issue #48).
 
-Each :class:`Specimen` describes one library, a deterministic snippet that builds a
-representative object from it, and an equality predicate for that object. The
-:func:`run_round_trip` harness drives the real ``record_event -> checkpoint ->
-load_checkpoint`` path and classifies the result into one of three values:
+Each :class:`Specimen` describes one library, the **representative object type** it builds
+(one type per library -- a library has many object types, so this is a sample, not a
+whole-library guarantee), a deterministic snippet that creates that object, and an
+equality predicate for it.
 
-- ``Migrated``    -- dill serialized the object (the optimized path).
-- ``Recomputed``  -- the object is unserializable, but re-running the cell restores it.
-- ``Failed``      -- the object could not be restored, or its value did not survive.
+ElasticKernel can restore a checkpointed object in two ways, and a cost optimizer
+(min-cut) decides which one to use per object -- neither is merely a "fallback":
 
-Migration is *forced* (``manual_migration_speed = True`` with an effectively infinite
-``migration_speed_bps``) so that anything serializable is migrated; whatever still falls
-back to the recompute set is genuinely unserializable. See issue #48 for the design.
+- **Migrate**   -- serialize the object with dill and reload it.
+- **Recompute** -- re-run the cell that produced it.
+
+:func:`run_paths` exercises *both* restore paths independently by forcing the optimizer's
+hand (``manual_migration_speed`` with an effectively infinite or near-zero
+``migration_speed_bps``) and reports, for each path, whether the object was reproduced:
+
+- migrate:   ``ok`` (migrated + value matches) / ``unserializable`` (could not serialize,
+             so this path is N/A) / ``wrong`` (migrated but value differs) / ``error``.
+- recompute: ``ok`` (recomputed + value matches) / ``wrong`` / ``error``.
 
 Run a single specimen in isolation (used by scripts/library_coverage.py for crash
 containment)::
 
     python -m tests.library_specimens <key> <workdir>
 
-which prints one JSON object ``{"key", "classification", "detail"}`` to stdout.
+which prints one JSON object ``{"key", "object_type", "migrate", "recompute", "detail"}``.
 """
 
 from __future__ import annotations
@@ -34,7 +40,8 @@ from typing import Callable, List
 
 @dataclass(frozen=True)
 class Specimen:
-    key: str  # display name in the README table
+    key: str  # library name in the README table
+    object_type: str  # the concrete object type that is checkpointed (e.g. "ndarray")
     module: str  # top-level import name (for importorskip / availability checks)
     pip_name: str  # PyPI distribution name (for the `coverage` dependency group)
     var: str  # variable that holds the representative object after `setup` runs
@@ -88,6 +95,7 @@ def _requests_response_equal(a, b):
 SPECIMENS: List[Specimen] = [
     Specimen(
         key="numpy",
+        object_type="ndarray",
         module="numpy",
         pip_name="numpy",
         var="ek_obj",
@@ -97,6 +105,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="pandas",
+        object_type="DataFrame",
         module="pandas",
         pip_name="pandas",
         var="ek_obj",
@@ -106,6 +115,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="scipy",
+        object_type="csr_matrix (sparse)",
         module="scipy",
         pip_name="scipy",
         var="ek_obj",
@@ -116,6 +126,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="scikit-learn",
+        object_type="LinearRegression (fitted)",
         module="sklearn",
         pip_name="scikit-learn",
         var="ek_obj",
@@ -128,6 +139,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="matplotlib",
+        object_type="Figure",
         module="matplotlib",
         pip_name="matplotlib",
         var="ek_obj",
@@ -140,6 +152,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="seaborn",
+        object_type="FacetGrid",
         module="seaborn",
         pip_name="seaborn",
         var="ek_obj",
@@ -151,6 +164,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="opencv (cv2)",
+        object_type="ndarray (image)",
         module="cv2",
         pip_name="opencv-python-headless",
         var="ek_obj",
@@ -162,6 +176,7 @@ SPECIMENS: List[Specimen] = [
     ),
     Specimen(
         key="requests",
+        object_type="Response",
         module="requests",
         pip_name="requests",
         var="ek_obj",
@@ -176,12 +191,16 @@ SPECIMENS: List[Specimen] = [
 
 SPECIMENS_BY_KEY = {s.key: s for s in SPECIMENS}
 
+# Force the optimizer one way or the other. A near-infinite migration speed makes
+# migrating effectively free (so anything serializable is migrated); a near-zero speed
+# makes migrating ruinously expensive (so everything is recomputed).
+_FORCE_SPEED = {"migrate": 1e12, "recompute": 1e-9}
 
-def run_round_trip(spec: Specimen, workdir: str) -> str:
-    """Drive record -> checkpoint -> load for ``spec`` and return its classification.
 
-    Returns one of ``"Migrated"``, ``"Recomputed"`` or ``"Failed"``. Raises only on
-    truly unexpected harness errors; ordinary failures map to ``"Failed"``.
+def _one_path(spec: Specimen, workdir: str, force: str) -> str:
+    """Run record -> checkpoint -> load for ``spec`` forcing one restore path.
+
+    ``force`` is ``"migrate"`` or ``"recompute"``. See module docstring for return values.
     """
     from IPython.core.interactiveshell import InteractiveShell
 
@@ -189,59 +208,72 @@ def run_round_trip(spec: Specimen, workdir: str) -> str:
 
     os.makedirs(workdir, exist_ok=True)
 
-    # --- record + checkpoint, forcing migration of anything serializable ---
     shell1 = InteractiveShell()
     en1 = ElasticNotebook(shell1, workdir)
     en1.manual_migration_speed = True
-    en1.migration_speed_bps = 1e12
-    en1.selector.migration_speed_bps = 1e12
+    en1.migration_speed_bps = _FORCE_SPEED[force]
+    en1.selector.migration_speed_bps = _FORCE_SPEED[force]
 
     pre = set(shell1.user_ns.keys())
     shell1.run_cell(spec.setup)
     if spec.var not in shell1.user_ns:
-        return "Failed"  # the snippet itself did not produce the object
+        return "error"  # the snippet itself did not produce the object
     original = shell1.user_ns[spec.var]
     en1.record_event(spec.setup, pre, 0.0, 0.1)
 
     ckpt = os.path.join(workdir, "checkpoint.pickle")
     if en1.checkpoint(ckpt) is not True:
-        return "Failed"
-    migrated = spec.var in en1.vss_to_migrate
+        return "error"
+    in_migrate = spec.var in en1.vss_to_migrate
 
-    # --- restore into a fresh shell and verify the value survived ---
     shell2 = InteractiveShell()
     en2 = ElasticNotebook(shell2, workdir)
     en2.load_checkpoint(ckpt)
     if spec.var not in shell2.user_ns:
-        return "Failed"
+        return "wrong"
     restored = shell2.user_ns[spec.var]
     try:
-        if not spec.equal(original, restored):
-            return "Failed"
+        value_ok = bool(spec.equal(original, restored))
     except Exception:
-        return "Failed"
+        value_ok = False
 
-    return "Migrated" if migrated else "Recomputed"
+    if force == "migrate":
+        if not in_migrate:
+            # Could not be serialized, so it fell to the recompute set: the migrate
+            # path does not apply to this object (it is not a failure).
+            return "unserializable"
+        return "ok" if value_ok else "wrong"
+    return "ok" if value_ok else "wrong"
+
+
+def run_paths(spec: Specimen, workdir: str) -> dict:
+    """Verify both restore paths for ``spec`` and return ``{"migrate", "recompute"}``."""
+    return {
+        "migrate": _one_path(spec, os.path.join(workdir, "migrate"), "migrate"),
+        "recompute": _one_path(spec, os.path.join(workdir, "recompute"), "recompute"),
+    }
 
 
 def _run_isolated(key: str, workdir: str) -> dict:
     spec = SPECIMENS_BY_KEY[key]
+    base = {"key": key, "object_type": spec.object_type}
     try:
         __import__(spec.module)
     except Exception as exc:  # library not installed in this environment
         return {
-            "key": key,
-            "classification": "Skipped",
-            "detail": f"not installed: {exc}",
+            **base,
+            "migrate": "skipped",
+            "recompute": "skipped",
+            "detail": str(exc),
         }
     try:
-        # Keep stdout clean for the JSON result: IPython echoes cell expression
-        # values (e.g. ``Out[1]: ...``) to stdout, so route them to stderr.
+        # Keep stdout clean for the JSON result: IPython echoes cell expression values
+        # (e.g. ``Out[1]: ...``) to stdout, so route them to stderr.
         with contextlib.redirect_stdout(sys.stderr):
-            classification = run_round_trip(spec, workdir)
-        return {"key": key, "classification": classification, "detail": ""}
+            paths = run_paths(spec, workdir)
+        return {**base, **paths, "detail": ""}
     except Exception as exc:  # pragma: no cover - defensive
-        return {"key": key, "classification": "Failed", "detail": repr(exc)}
+        return {**base, "migrate": "error", "recompute": "error", "detail": repr(exc)}
 
 
 if __name__ == "__main__":

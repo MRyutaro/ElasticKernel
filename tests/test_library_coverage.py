@@ -1,27 +1,35 @@
 """Checkpoint round-trip coverage for supported data-science libraries (issue #48).
 
 For each library in :data:`tests.library_specimens.SPECIMENS`, build a representative
-object and assert it survives a ``record_event -> checkpoint -> load_checkpoint`` round
-trip -- either by being migrated (dill-serialized) or recomputed (cell re-run). A library
-that is not installed is skipped; the dedicated `library-coverage` CI workflow installs
-the `coverage` dependency group so all specimens actually run there.
+object and verify both ElasticKernel restore paths:
 
-The three-way Migrated / Recomputed / Failed table for the README is produced by
-``scripts/library_coverage.py`` (subprocess-isolated); this test is the pass/fail gate.
+- **Recompute** must always reproduce the object (re-running a deterministic cell is the
+  safety net that guarantees nothing is lost).
+- **Migrate** must either reproduce it (serializable) or cleanly report it as
+  unserializable -- it must never silently restore a *wrong* value.
+
+A library that is not installed is skipped; the dedicated `library-coverage` CI workflow
+installs the `coverage` dependency group so all specimens actually run there. The
+Migrate/Recompute table for the README is produced by ``scripts/library_coverage.py``.
 """
 
 import pytest
 
 pytest.importorskip("IPython")
 
-from tests.library_specimens import SPECIMENS, run_round_trip  # noqa: E402
+from tests.library_specimens import SPECIMENS, run_paths  # noqa: E402
 
 
 @pytest.mark.parametrize("spec", SPECIMENS, ids=[s.key for s in SPECIMENS])
-def test_library_round_trip(spec, tmp_path):
+def test_library_restore_paths(spec, tmp_path):
     pytest.importorskip(spec.module)
-    classification = run_round_trip(spec, str(tmp_path))
-    assert classification in {"Migrated", "Recomputed"}, (
-        f"{spec.key}: checkpoint round trip did not restore the object "
-        f"(classification={classification!r})"
+    result = run_paths(spec, str(tmp_path))
+
+    assert result["recompute"] == "ok", (
+        f"{spec.key} ({spec.object_type}): recompute did not reproduce the object "
+        f"(got {result['recompute']!r})"
+    )
+    assert result["migrate"] in {"ok", "unserializable"}, (
+        f"{spec.key} ({spec.object_type}): migrate path is broken "
+        f"(got {result['migrate']!r})"
     )

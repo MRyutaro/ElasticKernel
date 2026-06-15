@@ -38,11 +38,20 @@ from tests.library_specimens import SPECIMENS  # noqa: E402
 BEGIN_MARKER = "<!-- BEGIN LIBRARY COVERAGE -->"
 END_MARKER = "<!-- END LIBRARY COVERAGE -->"
 
-_SYMBOL = {
-    "Migrated": "✅ Migrated",
-    "Recomputed": "♻️ Recomputed",
-    "Failed": "❌ Failed",
-    "Skipped": "⚠️ Skipped",
+# Per-path cell symbols. "unserializable" only happens for the Migrate path: the object
+# cannot be serialized, so ElasticKernel restores it by recomputing instead.
+_MIGRATE_SYMBOL = {
+    "ok": "✅",
+    "unserializable": "➖",
+    "wrong": "❌",
+    "error": "❌",
+    "skipped": "⚠️",
+}
+_RECOMPUTE_SYMBOL = {
+    "ok": "✅",
+    "wrong": "❌",
+    "error": "❌",
+    "skipped": "⚠️",
 }
 
 
@@ -62,11 +71,7 @@ def _classify(spec, workdir: str) -> dict:
         text=True,
     )
     if proc.returncode != 0:
-        return {
-            "key": spec.key,
-            "classification": "Failed",
-            "detail": f"subprocess crashed (exit {proc.returncode})",
-        }
+        return {"migrate": "error", "recompute": "error"}
     # The round trip routes library chatter to stderr, but stay defensive and take the
     # last JSON-parseable stdout line as the result.
     for line in reversed(proc.stdout.strip().splitlines()):
@@ -76,16 +81,21 @@ def _classify(spec, workdir: str) -> dict:
                 return json.loads(line)
             except json.JSONDecodeError:
                 continue
-    return {"key": spec.key, "classification": "Failed", "detail": "no result emitted"}
+    return {"migrate": "error", "recompute": "error"}
 
 
 def build_table(workdir: str) -> str:
-    rows = ["| Library | Result | Verified version |", "| --- | --- | --- |"]
+    rows = [
+        "| Library | Object | Migrate | Recompute | Verified version |",
+        "| --- | --- | :---: | :---: | --- |",
+    ]
     for spec in SPECIMENS:
         result = _classify(spec, os.path.join(workdir, spec.key.replace(" ", "_")))
-        symbol = _SYMBOL.get(result["classification"], result["classification"])
+        migrate = _MIGRATE_SYMBOL.get(result.get("migrate"), "❓")
+        recompute = _RECOMPUTE_SYMBOL.get(result.get("recompute"), "❓")
         rows.append(
-            f"| `{spec.module}` ({spec.key}) | {symbol} | {_version(spec.pip_name)} |"
+            f"| `{spec.module}` ({spec.key}) | `{spec.object_type}` "
+            f"| {migrate} | {recompute} | {_version(spec.pip_name)} |"
         )
     return "\n".join(rows)
 

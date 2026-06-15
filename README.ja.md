@@ -107,28 +107,33 @@ load_checkpoint`）が各バージョンで通ることを検証しています�
 
 ## 対応ライブラリ
 
-ElasticKernel は任意の Python オブジェクトをチェックポイントしますが、その方法はライブラリに
-よって変わります。CI は以下のライブラリについて `record_event → checkpoint → load_checkpoint`
-の往復を継続的に検証し、3 値で分類します。
+ElasticKernel はチェックポイントしたオブジェクトを 2 通りの方法で復元でき、どちらを使うかは
+チェックポイント時にコスト最適化（min-cut）が**オブジェクトごとに**決めます。どちらか一方が
+単なるフォールバックというわけではありません。
 
-- ✅ **Migrated** — dill でシリアライズして移行（コスト最適化された経路）。
-- ♻️ **Recomputed** — シリアライズ不可だが、セル再実行で復元できる（フォールバックが機能）。
-- ❌ **Failed** — 復元できない、または値が一致しない。
+- **Migrate（移行）** — dill でシリアライズして再ロードする。
+- **Recompute（再計算）** — そのオブジェクトを生成したセルを再実行する。
+
+CI は以下の**各ライブラリの代表的なオブジェクトを 1 つずつ**検証し（ライブラリには多様な
+オブジェクト型があるため、1 型のサンプル検証であってライブラリ全体の保証ではありません）、
+各復元パスでオブジェクトが再現できるかを示します。
+
+凡例: ✅ 正しく復元 ・ ➖ シリアライズ不可のため Migrate は対象外（Recompute を使用） ・ ❌ 失敗
 
 この表は [`scripts/library_coverage.py`](scripts/library_coverage.py) が生成し、
 [`library-coverage`](.github/workflows/library-coverage.yml) ワークフローが同期します。
 
 <!-- BEGIN LIBRARY COVERAGE -->
-| Library | Result | Verified version |
-| --- | --- | --- |
-| `numpy` (numpy) | ✅ Migrated | 2.3.4 |
-| `pandas` (pandas) | ✅ Migrated | 3.0.3 |
-| `scipy` (scipy) | ✅ Migrated | 1.17.1 |
-| `sklearn` (scikit-learn) | ✅ Migrated | 1.9.0 |
-| `matplotlib` (matplotlib) | ✅ Migrated | 3.11.0 |
-| `seaborn` (seaborn) | ✅ Migrated | 0.13.2 |
-| `cv2` (opencv (cv2)) | ✅ Migrated | 4.13.0.92 |
-| `requests` (requests) | ✅ Migrated | 2.32.5 |
+| Library | Object | Migrate | Recompute | Verified version |
+| --- | --- | :---: | :---: | --- |
+| `numpy` (numpy) | `ndarray` | ✅ | ✅ | 2.3.4 |
+| `pandas` (pandas) | `DataFrame` | ✅ | ✅ | 3.0.3 |
+| `scipy` (scipy) | `csr_matrix (sparse)` | ✅ | ✅ | 1.17.1 |
+| `sklearn` (scikit-learn) | `LinearRegression (fitted)` | ✅ | ✅ | 1.9.0 |
+| `matplotlib` (matplotlib) | `Figure` | ✅ | ✅ | 3.11.0 |
+| `seaborn` (seaborn) | `FacetGrid` | ✅ | ✅ | 0.13.2 |
+| `cv2` (opencv (cv2)) | `ndarray (image)` | ✅ | ✅ | 4.13.0.92 |
+| `requests` (requests) | `Response` | ✅ | ✅ | 2.32.5 |
 <!-- END LIBRARY COVERAGE -->
 
 ## 仕組み
