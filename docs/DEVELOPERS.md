@@ -11,19 +11,14 @@ ELASTIC_KERNEL_LOG_LEVEL=DEBUG jupyter lab
 
 ## PyPi へのアップロード方法
 
-### 自動でアップロードする方法
+### 自動でアップロードする方法（release-please）
 
-```sh
-$ uv pip install bump-my-version  # 初回のみ実行する
-$ bump-my-version bump {hogehoge}  # コマンドは以下のいずれかから選択する
-$ git push --follow-tags  # コミットとタグの両方をプッシュする
-```
+バージョン管理・公開は **release-please** で自動化されている。手動でバージョンを上げる必要はない。
 
-| コマンド             | 説明                       | バージョン変更例 |
-| -------------------- | -------------------------- | ---------------- |
-| `bump-my-version bump patch` | パッチバージョンを上げる   | 0.0.1 → 0.0.2    |
-| `bump-my-version bump minor` | マイナーバージョンを上げる | 0.1.0 → 0.2.0    |
-| `bump-my-version bump major` | メジャーバージョンを上げる | 1.0.0 → 2.0.0    |
+1. main にマージされたコミット（PR）の **Conventional Commits**（`fix:` → patch、`feat:` → minor、`BREAKING CHANGE:` → major）から release-please が次バージョンを判定し、リリース PR を自動作成・更新する。
+2. そのリリース PR をマージすると `v{version}` タグと GitHub Release が作られ、`publish-to-pypi.yml`（PyPI）と `docker-publish.yml`（GHCR）が発火して公開される。
+
+詳細は `CLAUDE.md` の「バージョン管理・リリース」セクションを参照。
 
 ### 手動でアップロードする方法
 

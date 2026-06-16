@@ -72,7 +72,7 @@ uv run pytest
 
 **前提セットアップ:** GITHUB_TOKEN で作成したタグは他ワークフローを起動できない（GitHub の仕様）。PyPI/GHCR への公開を自動発火させるため、release-please は GitHub App トークンでタグを打つ。App（Contents: read/write、Pull requests: read/write）を作成・インストールし、`RELEASE_PLEASE_APP_ID` と `RELEASE_PLEASE_APP_PRIVATE_KEY` をリポジトリ Secret に設定すること。`actions/create-github-app-token` が実行時にトークンを発行する。
 
-> 旧来の `bump-my-version`（`.bumpversion.toml`）は手動フォールバックとして残してある。`bump-my-version bump <level>` でローカルからタグを打って `git push --follow-tags` すれば従来どおり公開できる。手動公開（CIを使わない方法）は `docs/DEVELOPERS.md` を参照。
+> CI を使わない手動公開（`python -m build` + `twine upload`）は `docs/DEVELOPERS.md` を参照。
 
 ## アーキテクチャ
 

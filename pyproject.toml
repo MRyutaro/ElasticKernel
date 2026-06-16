@@ -70,7 +70,6 @@ ignore_missing_imports = true
 dev = [
     "black>=24.8.0",
     "build>=1.2.2.post1",
-    "bump-my-version>=1.2.4",
     "flake8>=5.0.4",
     "isort>=5.13.2",
     "mypy>=1.14.1",
