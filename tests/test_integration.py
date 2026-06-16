@@ -2,7 +2,7 @@
 
 Runs without a Jupyter server by driving a real IPython InteractiveShell
 directly. If the IPython shell cannot be constructed in this environment, the
-test skips (see docs/prompts/refactor-instructions.md Phase 1, step 3).
+test skips.
 """
 
 import pytest

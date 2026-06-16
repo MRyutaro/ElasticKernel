@@ -1,8 +1,7 @@
 """Shared fixtures for the ElasticKernel test suite.
 
 These tests pin the *current* behavior of the codebase as a safety net for
-refactoring (see docs/prompts/refactor-instructions.md, Phase 1). They must not
-change production code.
+refactoring. They must not change production code.
 """
 
 from types import SimpleNamespace
