@@ -167,6 +167,7 @@ the migrated variables back into your namespace, and recomputes the rest.
 
 ## Documentation
 
+- **On-demand checkpoint/restore API:** [docs/CHECKPOINT_API.md](docs/CHECKPOINT_API.md) — trigger checkpoint/restore at any time from an external orchestrator (REST API)
 - **Developer guide:** [docs/DEVELOPERS.md](docs/DEVELOPERS.md)
 - **日本語 README:** [README.ja.md](README.ja.md)
 

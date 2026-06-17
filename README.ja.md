@@ -160,6 +160,7 @@ ElasticKernel は IPython カーネルを拡張し、各セルの実行を監視
 
 ## ドキュメント
 
+- **任意タイミングのチェックポイント/復元 API:** [docs/CHECKPOINT_API.md](docs/CHECKPOINT_API.md) — 外部オーケストレーターから任意のタイミングで保存/復元を発火する（REST API）
 - **開発者向け資料:** [docs/DEVELOPERS.md](docs/DEVELOPERS.md)
 - **English README:** [README.md](README.md)
 
