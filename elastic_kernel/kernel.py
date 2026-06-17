@@ -32,7 +32,13 @@ class ElasticKernel(IPythonKernel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.logger: logging.Logger
+        # __setup_file_path() 内のパス解決フォールバック
+        # (__resolve_path_without_jpy_session_name) は JPY_SESSION_NAME 未設定時に
+        # self.logger を参照する。これは __setup_logger() より前に実行されるため、
+        # ここで先に同名ロガーを取得しておかないと AttributeError でカーネルが即死する。
+        # __setup_logger() は同じ "ElasticKernelLogger" にファイルハンドラを設定するので、
+        # ここで取得したオブジェクトがそのまま後段で正しく構成される。
+        self.logger: logging.Logger = logging.getLogger("ElasticKernelLogger")
         self.log_file_path: str
         self.checkpoint_file_path: str
 
