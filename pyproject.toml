@@ -40,6 +40,12 @@ classifiers = [
     "Framework :: Jupyter",
 ]
 
+[project.optional-dependencies]
+# 外部オーケストレーター向け REST チェックポイント/復元 API（Jupyter Server 拡張）。
+# jupyter_server は JupyterLab 環境には通常既に入っているが、この機能を使う意図を明示し
+# 保証するため optional-dependencies に置く。有効化は `elastic-kernel install --server`。
+server = ["jupyter_server"]
+
 [project.urls]
 Homepage = "https://github.com/MRyutaro/ElasticKernel"
 Repository = "https://github.com/MRyutaro/ElasticKernel"

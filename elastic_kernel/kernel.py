@@ -1,4 +1,5 @@
 import ast
+import asyncio
 import hashlib
 import json
 import logging
@@ -74,42 +75,19 @@ class ElasticKernel(IPythonKernel):
                 "Continuing without checkpoint tracking (plain kernel mode)."
             )
 
-        # チェックポイントファイルをロードする
-        if self.elastic_notebook is not None and os.path.exists(
-            self.checkpoint_file_path
-        ):
-            self.logger.info("Checkpoint file exists. Loading checkpoint.")
-            try:
-                start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
-                    "%Y-%m-%dT%H:%M:%S.%f%z"
-                )
-                self.logger.debug(f"{self.shell.user_ns=}")
-                self.logger.info(f"Loading checkpoint started at: {start_time}")
+        # 起動時にチェックポイントファイルがあれば復元する。
+        # 復元ロジックは _restore_checkpoint() に共通化されており、外部オーケストレーター
+        # からの control メッセージ経由でも同じ処理を再利用する。
+        self._restore_checkpoint()
 
-                self.elastic_notebook.load_checkpoint(self.checkpoint_file_path)
-
-                end_time = datetime.now(timezone(timedelta(hours=9))).strftime(
-                    "%Y-%m-%dT%H:%M:%S.%f%z"
-                )
-                loading_time = datetime.strptime(
-                    end_time, "%Y-%m-%dT%H:%M:%S.%f%z"
-                ) - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
-                self.logger.info(f"Loading checkpoint finished at: {end_time}")
-                self.logger.info(f"Total loading time: {loading_time}")
-                self.logger.debug(f"{self.shell.user_ns=}")
-
-                self.logger.debug(
-                    f"{self.elastic_notebook.dependency_graph.variable_snapshots=}"
-                )
-                self.logger.info("Checkpoint successfully loaded.")
-
-            except Exception as e:
-                self.logger.error(f"Error loading checkpoint: {e}")
-                self.logger.error(f"Error details:\n{traceback.format_exc()}")
-        else:
-            self.logger.info(
-                "Checkpoint file does not exist. Skipping loading checkpoint."
-            )
+        # 外部オーケストレーターから任意タイミングで保存/復元を発火できるよう、control
+        # チャネルにカスタムメッセージハンドラを登録する。control チャネルはセル実行の
+        # shell キューとは別系統なので、実行中でも割り込んで処理でき、user_ns にコードを
+        # 走らせないためノートブックユーザーには透過（%who を汚染しない）。
+        self.control_handlers["elastic_checkpoint_request"] = (
+            self._on_checkpoint_request
+        )
+        self.control_handlers["elastic_restore_request"] = self._on_restore_request
 
     def __resolve_path_without_jpy_session_name(self):
         """
@@ -348,15 +326,69 @@ class ElasticKernel(IPythonKernel):
 
         return result
 
-    def do_shutdown(self, restart):
+    def _restore_checkpoint(self):
         """
-        カーネル終了時に呼び出されるメソッド
+        self.checkpoint_file_path からチェックポイントを復元する。
+
+        起動時（__init__）と、外部オーケストレーターからの control メッセージの両方から
+        呼ばれる共通ロジック。再呼び出し可能（冪等）。結果を dict で返す。
+
+        注意: load_checkpoint は user_ns を上書き・セルを再計算する破壊的操作。発火順序の
+        管理は呼び出し側（オーケストレーター）の責務。
         """
-        # ElasticNotebook の生成に失敗していた場合はチェックポイントを保存できないので
-        # スキップして通常のシャットダウンを継続する。(D-13)
+        if self.elastic_notebook is None:
+            self.logger.info("ElasticNotebook unavailable; cannot restore checkpoint.")
+            return {"ok": False, "reason": "plain_kernel_mode"}
+        if not os.path.exists(self.checkpoint_file_path):
+            self.logger.info(
+                "Checkpoint file does not exist. Skipping loading checkpoint."
+            )
+            return {"ok": False, "reason": "no_checkpoint_file"}
+
+        self.logger.info("Checkpoint file exists. Loading checkpoint.")
+        try:
+            start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f%z"
+            )
+            self.logger.debug(f"{self.shell.user_ns=}")
+            self.logger.info(f"Loading checkpoint started at: {start_time}")
+
+            self.elastic_notebook.load_checkpoint(self.checkpoint_file_path)
+
+            end_time = datetime.now(timezone(timedelta(hours=9))).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f%z"
+            )
+            loading_time = datetime.strptime(
+                end_time, "%Y-%m-%dT%H:%M:%S.%f%z"
+            ) - datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
+            self.logger.info(f"Loading checkpoint finished at: {end_time}")
+            self.logger.info(f"Total loading time: {loading_time}")
+            self.logger.debug(f"{self.shell.user_ns=}")
+            self.logger.debug(
+                f"{self.elastic_notebook.dependency_graph.variable_snapshots=}"
+            )
+            self.logger.info("Checkpoint successfully loaded.")
+            return {
+                "ok": True,
+                "elapsed_seconds": loading_time.total_seconds(),
+                "path": self.checkpoint_file_path,
+            }
+        except Exception as e:
+            self.logger.error(f"Error loading checkpoint: {e}")
+            self.logger.error(f"Error details:\n{traceback.format_exc()}")
+            return {"ok": False, "reason": "exception", "error": str(e)}
+
+    def _save_checkpoint(self):
+        """
+        self.checkpoint_file_path へチェックポイントを保存する。
+
+        カーネル終了時（do_shutdown）と、外部オーケストレーターからの control メッセージの
+        両方から呼ばれる共通ロジック。再呼び出し可能（冪等）。結果を dict で返す。
+        """
+        # ElasticNotebook の生成に失敗していた場合はチェックポイントを保存できない。(D-13)
         if self.elastic_notebook is None:
             self.logger.info("ElasticNotebook unavailable; skipping checkpoint save.")
-            return super().do_shutdown(restart)
+            return {"ok": False, "reason": "plain_kernel_mode"}
 
         try:
             start_time = datetime.now(timezone(timedelta(hours=9))).strftime(
@@ -388,10 +420,78 @@ class ElasticKernel(IPythonKernel):
             self.logger.debug(
                 f"再計算する変数：{self.elastic_notebook.vss_to_recompute}"
             )
+            return {
+                "ok": True,
+                "elapsed_seconds": saving_time.total_seconds(),
+                "path": self.checkpoint_file_path,
+                "vss_to_migrate": len(self.elastic_notebook.vss_to_migrate),
+                "vss_to_recompute": len(self.elastic_notebook.vss_to_recompute),
+            }
 
         except Exception as e:
             self.logger.error(f"Error saving checkpoint: {e}")
             self.logger.error(f"Error details:\n{traceback.format_exc()}")
+            return {"ok": False, "reason": "exception", "error": str(e)}
+
+    async def _run_on_main_loop(self, fn):
+        """
+        fn() をメインの shell io_loop（セルが実行されるループ）上で実行し、その結果を await する。
+
+        control ハンドラは control 用のループ/スレッドで動くため、そこから直接 user_ns を
+        触るとセル実行とのデータ競合になる。メイン io_loop へ marshal することで、走行中の
+        セルが終わってから（＝user_ns と排他な状態で）実行され、一貫したスナップショットになる。
+        """
+        loop = asyncio.get_running_loop()  # control 側のループ
+        fut = loop.create_future()
+
+        def _runner():
+            try:
+                result = fn()
+                loop.call_soon_threadsafe(fut.set_result, result)
+            except Exception as e:  # 例外をメインループ上に漏らさない
+                loop.call_soon_threadsafe(fut.set_exception, e)
+
+        # add_callback はスレッドセーフ。メイン io_loop が idle になったとき _runner を実行する。
+        self.io_loop.add_callback(_runner)
+        return await fut
+
+    async def _on_checkpoint_request(self, stream, idents, parent):
+        """control チャネルの elastic_checkpoint_request ハンドラ。"""
+        self.logger.info("Received elastic_checkpoint_request (control channel)")
+        try:
+            result = await self._run_on_main_loop(self._save_checkpoint)
+        except Exception as e:
+            result = {"ok": False, "reason": "exception", "error": str(e)}
+        self.session.send(
+            stream,
+            "elastic_checkpoint_reply",
+            content=result,
+            parent=parent,
+            ident=idents,
+        )
+
+    async def _on_restore_request(self, stream, idents, parent):
+        """control チャネルの elastic_restore_request ハンドラ。"""
+        self.logger.info("Received elastic_restore_request (control channel)")
+        try:
+            result = await self._run_on_main_loop(self._restore_checkpoint)
+        except Exception as e:
+            result = {"ok": False, "reason": "exception", "error": str(e)}
+        self.session.send(
+            stream,
+            "elastic_restore_reply",
+            content=result,
+            parent=parent,
+            ident=idents,
+        )
+
+    def do_shutdown(self, restart):
+        """
+        カーネル終了時に呼び出されるメソッド
+        """
+        # 保存ロジックは _save_checkpoint() に共通化。plain-kernel モードの判定もこの中で行い、
+        # いずれの場合も通常のシャットダウンを継続する。(D-13)
+        self._save_checkpoint()
         return super().do_shutdown(restart)
 
 
