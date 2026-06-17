@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/MRyutaro/ElasticKernel/compare/v0.1.0...v0.1.1) (2026-06-17)
+
+
+### Miscellaneous Chores
+
+* release 0.1.1 ([288bb48](https://github.com/MRyutaro/ElasticKernel/commit/288bb4867b21e7a69cb5e9e0418d3cd1b02442b1))
+
 ## [0.1.0](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.34...v0.1.0) (2026-06-17)
 
 
