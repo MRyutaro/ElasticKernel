@@ -1,12 +1,28 @@
 name: Run tests
 
 on:
+  # コード・テスト・依存・このワークフロー自体が変わったときだけ走らせる。
+  # README/docs/CLAUDE.md などドキュメントのみの変更ではテストをスキップする。
   push:
     branches:
       - "main"
+    paths:
+      - "elastic_kernel/**"
+      - "elastic_notebook/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/test.yml"
   pull_request:
     branches:
       - "main"
+    paths:
+      - "elastic_kernel/**"
+      - "elastic_notebook/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/test.yml"
 
 jobs:
   test:
