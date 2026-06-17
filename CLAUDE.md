@@ -197,6 +197,8 @@ uv run pytest
 
 なお worktree / ブランチを作らずに進めた軽微な作業（現在のブランチでそのまま作業した場合）は、上記のうち worktree 削除は不要。
 
+**例外:** `feature-experiment` ブランチは後片付けの対象にしない（マージ有無に関わらず**削除せず残す**）。
+
 ## PR作成時の注意
 
 - PR を作成するとき、対応する Issue がある場合は PR 本文に `close #<issue番号>` を記載して、PR のマージ時に Issue が自動で close されるようにする（複数 Issue がある場合はそれぞれに `close #<issue番号>` を書く）。
