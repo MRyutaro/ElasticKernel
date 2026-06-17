@@ -865,7 +865,7 @@ wheels = [
 
 [[package]]
 name = "elastic-kernel"
-version = "0.0.33"
+version = "0.0.34"
 source = { editable = "." }
 dependencies = [
     { name = "dill" },
@@ -883,6 +883,11 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "xxhash" },
+]
+
+[package.optional-dependencies]
+server = [
+    { name = "jupyter-server" },
 ]
 
 [package.dev-dependencies]
@@ -921,10 +926,12 @@ requires-dist = [
     { name = "ipython" },
     { name = "jupyter" },
     { name = "jupyter-client" },
+    { name = "jupyter-server", marker = "extra == 'server'" },
     { name = "networkx" },
     { name = "numpy" },
     { name = "xxhash" },
 ]
+provides-extras = ["server"]
 
 [package.metadata.requires-dev]
 coverage = [
