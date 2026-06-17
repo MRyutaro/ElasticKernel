@@ -435,23 +435,44 @@ class ElasticKernel(IPythonKernel):
 
     async def _run_on_main_loop(self, fn):
         """
-        fn() をメインの shell io_loop（セルが実行されるループ）上で実行し、その結果を await する。
+        同期関数 fn() を「メインの shell io_loop」上で実行し、その戻り値を await して返す。
 
-        control ハンドラは control 用のループ/スレッドで動くため、そこから直接 user_ns を
-        触るとセル実行とのデータ競合になる。メイン io_loop へ marshal することで、走行中の
-        セルが終わってから（＝user_ns と排他な状態で）実行され、一貫したスナップショットになる。
+        なぜこれが必要か（スレッドの住み分け）:
+        - ipykernel では、セル実行 (do_execute) は「メインの shell io_loop」スレッドで動く。
+        - 一方、control チャネルのメッセージ（このハンドラ）は「別の control スレッド」で動く。
+        - fn には _save_checkpoint / _restore_checkpoint が渡される。これらは self.shell.user_ns
+          を読み書きするが、user_ns はセル実行が触っている本体そのもの。control スレッドから
+          直接呼ぶと、セル実行中の user_ns を別スレッドが同時に触ることになり、データ競合や
+          「半分だけ更新された状態」のスナップショットを生む。
+
+        そこで fn を直接呼ばず、メイン io_loop に「あとで実行して」と予約 (add_callback) する。
+        メイン io_loop はセル実行と同じ場所なので、予約された fn は「実行中のセルが無い瞬間」に
+        順番が回ってきて実行される。結果として user_ns と排他な状態で保存/復元でき、一貫性が保たれる。
+
+        実装:
+        1. asyncio の Future を control 側ループに作る（fn の完了を待つための受け皿）。
+        2. fn を包んだ _runner をメイン io_loop に予約する。_runner はメインスレッドで動く。
+        3. _runner は fn() の結果（or 例外）を call_soon_threadsafe で control 側ループの Future に
+           渡す（スレッドをまたぐので threadsafe 版を使う）。
+        4. await fut で、メイン側の fn() が終わるまでこの control ハンドラを中断して待つ。
         """
-        loop = asyncio.get_running_loop()  # control 側のループ
+        # このコルーチンが動いている control 側のイベントループ。Future の所有者になる。
+        loop = asyncio.get_running_loop()
         fut = loop.create_future()
 
         def _runner():
+            # ここはメイン io_loop スレッド上。セル実行と排他なので user_ns を安全に触れる。
             try:
                 result = fn()
+                # 別スレッド(control側)の Future へ結果を渡す。threadsafe でないと壊れる。
                 loop.call_soon_threadsafe(fut.set_result, result)
-            except Exception as e:  # 例外をメインループ上に漏らさない
+            except (
+                Exception
+            ) as e:  # メインループ上に例外を漏らさず Future 経由で伝播させる。
                 loop.call_soon_threadsafe(fut.set_exception, e)
 
-        # add_callback はスレッドセーフ。メイン io_loop が idle になったとき _runner を実行する。
+        # add_callback はスレッドセーフ。メイン io_loop の手が空いたとき（=実行中セルが無い瞬間）に
+        # _runner を実行する。control スレッドからメインスレッドへ処理を「橋渡し」している。
         self.io_loop.add_callback(_runner)
         return await fut
 
