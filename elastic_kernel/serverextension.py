@@ -1,11 +1,13 @@
 """Jupyter Server 拡張: 外部オーケストレーター向けの REST チェックポイント/復元 API。
 
 このモジュールは Jupyter Server（JupyterLab の裏で動く Web サーバー）に
-``POST /elastic_kernel/checkpoint`` と ``POST /elastic_kernel/restore`` の2つの
-エンドポイントを追加する。リクエストは ``kernel_id`` で対象カーネルを指定し、ハンドラは
-そのカーネルの control チャネルへカスタムメッセージ（``elastic_checkpoint_request`` /
-``elastic_restore_request``）を送り、カーネル側（elastic_kernel.kernel）が返す reply を
-HTTP レスポンスとして中継する。
+``POST /elastic_kernel/checkpoint`` ・ ``POST /elastic_kernel/restore`` ・
+``POST /elastic_kernel/auto_mode`` の3つのエンドポイントを追加する。リクエストは
+``kernel_id`` で対象カーネルを指定し、ハンドラはそのカーネルの control チャネルへ
+カスタムメッセージ（``elastic_checkpoint_request`` / ``elastic_restore_request`` /
+``elastic_set_auto_mode``）を送り、カーネル側（elastic_kernel.kernel）が返す reply を
+HTTP レスポンスとして中継する。``auto_mode`` は走行中のカーネルの自動保存/自動復元
+モードを実行時に切り替える（env 変数による起動時モードの実行時上書き）。
 
 注意:
 - このモジュールは Jupyter Server プロセス側でのみロードされる。カーネルプロセスからは
@@ -25,22 +27,25 @@ from tornado import web
 # control チャネルへ送るリクエスト種別と、対応する reply 種別。
 _CHECKPOINT = ("elastic_checkpoint_request", "elastic_checkpoint_reply")
 _RESTORE = ("elastic_restore_request", "elastic_restore_reply")
+_AUTO_MODE = ("elastic_set_auto_mode", "elastic_set_auto_mode_reply")
 
 # reply を待つデフォルトのタイムアウト（秒）。body の "timeout" で上書き可。
 _DEFAULT_TIMEOUT = 120.0
 
 
-async def _send_and_await(kernel, request_type, reply_type, timeout):
+async def _send_and_await(kernel, request_type, reply_type, timeout, content=None):
     """対象カーネルの control チャネルへ request_type を送り、reply_type を await して返す。
 
     新しいクライアント（= JupyterLab とは別の接続）を一時的に開いて control チャネルに
     送る。control チャネルは複数クライアント可で、reply は送信元へルーティングされる。
     クライアントは km.client() で生成されるため署名キーがカーネルと一致する。
+
+    content にメッセージのペイロード（auto_mode の auto_save/auto_restore 等）を渡せる。
     """
     client = kernel.client()
     client.start_channels()
     try:
-        msg = client.session.msg(request_type, {})
+        msg = client.session.msg(request_type, content or {})
         msg_id = msg["header"]["msg_id"]
         client.control_channel.send(msg)
 
@@ -64,7 +69,7 @@ async def _send_and_await(kernel, request_type, reply_type, timeout):
 class _ElasticBaseHandler(APIHandler):
     """checkpoint/restore 共通の処理。kernel_id 解決 → control 送信 → JSON 応答。"""
 
-    async def _dispatch(self, request_type, reply_type):
+    async def _dispatch(self, request_type, reply_type, payload=None):
         body = self.get_json_body() or {}
         kernel_id = body.get("kernel_id") or self.get_argument("kernel_id", None)
         if not kernel_id:
@@ -81,7 +86,9 @@ class _ElasticBaseHandler(APIHandler):
             raise web.HTTPError(400, "timeout must be a number")
 
         try:
-            content = await _send_and_await(kernel, request_type, reply_type, timeout)
+            content = await _send_and_await(
+                kernel, request_type, reply_type, timeout, payload
+            )
         except (TimeoutError, Empty):
             raise web.HTTPError(504, "kernel did not reply in time")
 
@@ -102,6 +109,30 @@ class RestoreHandler(_ElasticBaseHandler):
         await self._dispatch(*_RESTORE)
 
 
+class AutoModeHandler(_ElasticBaseHandler):
+    """走行中カーネルの自動保存/自動復元モードを実行時に切り替える。
+
+    body の auto_save / auto_restore（いずれも省略可・bool）を control メッセージの
+    ペイロードに載せて送る。少なくとも一方は指定が必要。
+    """
+
+    @web.authenticated
+    async def post(self):
+        body = self.get_json_body() or {}
+        payload = {}
+        for key in ("auto_save", "auto_restore"):
+            if body.get(key) is not None:
+                value = body[key]
+                if not isinstance(value, bool):
+                    raise web.HTTPError(400, f"{key} must be a boolean")
+                payload[key] = value
+        if not payload:
+            raise web.HTTPError(
+                400, "at least one of auto_save / auto_restore is required"
+            )
+        await self._dispatch(*_AUTO_MODE, payload=payload)
+
+
 def _jupyter_server_extension_points():
     return [{"module": "elastic_kernel.serverextension"}]
 
@@ -113,9 +144,11 @@ def _load_jupyter_server_extension(server_app):
     handlers = [
         (url_path_join(base_url, "elastic_kernel", "checkpoint"), CheckpointHandler),
         (url_path_join(base_url, "elastic_kernel", "restore"), RestoreHandler),
+        (url_path_join(base_url, "elastic_kernel", "auto_mode"), AutoModeHandler),
     ]
     web_app.add_handlers(".*$", handlers)
     server_app.log.info(
         "elastic_kernel server extension loaded: "
-        "POST /elastic_kernel/checkpoint, POST /elastic_kernel/restore"
+        "POST /elastic_kernel/checkpoint, POST /elastic_kernel/restore, "
+        "POST /elastic_kernel/auto_mode"
     )

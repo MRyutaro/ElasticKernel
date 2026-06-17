@@ -232,6 +232,7 @@ def test_load_registers_handlers():
     paths = [pattern for pattern, _handler in registered]
     assert any("checkpoint" in p for p in paths)
     assert any("restore" in p for p in paths)
+    assert any("auto_mode" in p for p in paths)
 
 
 # --------------------------------------------------------------------------- #
@@ -290,3 +291,93 @@ def test_do_shutdown_skips_save_when_auto_save_disabled(monkeypatch):
 
     assert obj._save_checkpoint_calls == []  # 自動保存はスキップ
     assert super_calls == [True]  # それでも通常のシャットダウンは継続する
+
+
+# --------------------------------------------------------------------------- #
+# runtime auto-mode switch (elastic_set_auto_mode / POST /elastic_kernel/auto_mode)
+# --------------------------------------------------------------------------- #
+def _auto_mode_stub(auto_save, auto_restore):
+    """_set_auto_mode のフラグ差し替えだけを検証するための最小インスタンス。"""
+    obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
+    obj.auto_save = auto_save
+    obj.auto_restore = auto_restore
+    obj.logger = logging.getLogger("elastic-test")
+    return obj
+
+
+def test_set_auto_mode_updates_both():
+    obj = _auto_mode_stub(auto_save=True, auto_restore=True)
+
+    result = obj._set_auto_mode(auto_save=False, auto_restore=False)
+
+    assert obj.auto_save is False
+    assert obj.auto_restore is False
+    assert result == {
+        "ok": True,
+        "auto_save": False,
+        "auto_restore": False,
+        "changed": {"auto_save": False, "auto_restore": False},
+    }
+
+
+def test_set_auto_mode_leaves_unspecified_unchanged():
+    obj = _auto_mode_stub(auto_save=True, auto_restore=True)
+
+    # auto_restore は None なので据え置き。auto_save だけ False へ。
+    result = obj._set_auto_mode(auto_save=False)
+
+    assert obj.auto_save is False
+    assert obj.auto_restore is True  # 据え置き
+    assert result["changed"] == {"auto_save": False}
+    assert result["auto_restore"] is True
+
+
+def test_set_auto_mode_normalizes_to_bool():
+    obj = _auto_mode_stub(auto_save=False, auto_restore=False)
+
+    result = obj._set_auto_mode(auto_save=1, auto_restore=0)
+
+    assert obj.auto_save is True
+    assert obj.auto_restore is False
+    assert result["auto_save"] is True
+    assert result["auto_restore"] is False
+
+
+def test_set_auto_mode_handler_is_coroutine():
+    assert inspect.iscoroutinefunction(ElasticKernel._on_set_auto_mode_request)
+
+
+def test_set_auto_mode_handler_sends_reply():
+    sent = []
+    # session は traitlets で検証されるため、real instance ではなく軽量スタブを使う。
+    s = types.SimpleNamespace(
+        auto_save=True,
+        auto_restore=True,
+        logger=logging.getLogger("elastic-test"),
+        session=types.SimpleNamespace(
+            send=lambda stream, msg_type, content, parent, ident: sent.append(
+                (msg_type, content, parent, ident)
+            )
+        ),
+    )
+    s._set_auto_mode = lambda **kw: ElasticKernel._set_auto_mode(s, **kw)
+
+    parent = {
+        "header": {"msg_id": "req-1"},
+        "content": {"auto_save": False},
+    }
+
+    asyncio.run(ElasticKernel._on_set_auto_mode_request(s, "stream", b"ident", parent))
+
+    assert len(sent) == 1
+    msg_type, content, sent_parent, ident = sent[0]
+    assert msg_type == "elastic_set_auto_mode_reply"
+    assert content["ok"] is True
+    assert content["auto_save"] is False
+    assert content["auto_restore"] is True  # 指定なしは据え置き
+    assert content["changed"] == {"auto_save": False}
+    assert sent_parent is parent
+    assert ident == b"ident"
+    # フラグが実際に差し替わっている。
+    assert s.auto_save is False
+    assert s.auto_restore is True

@@ -116,6 +116,12 @@ class ElasticKernel(IPythonKernel):
             self._on_checkpoint_request
         )
         self.control_handlers["elastic_restore_request"] = self._on_restore_request
+        # 実行時に自動保存/自動復元モードを切り替える control メッセージ。env 変数が「起動時
+        # の初期モード」を決めるのに対し、こちらは走行中のカーネルに対して self.auto_save /
+        # self.auto_restore を差し替える。ElasticHub では「移行対象に決めた瞬間にその pod だけ
+        # 手動へ倒す」用途。全 pod を auto のまま起動でき、env の副作用（culling 等でも保存
+        # されない）も避けられる。
+        self.control_handlers["elastic_set_auto_mode"] = self._on_set_auto_mode_request
 
     def __resolve_path_without_jpy_session_name(self):
         """
@@ -545,6 +551,60 @@ class ElasticKernel(IPythonKernel):
         self.session.send(
             stream,
             "elastic_restore_reply",
+            content=result,
+            parent=parent,
+            ident=idents,
+        )
+
+    def _set_auto_mode(self, auto_save=None, auto_restore=None):
+        """
+        実行時に自動保存(self.auto_save)/自動復元(self.auto_restore)フラグを上書きする。
+
+        env 変数は「起動時の初期モード」を決めるだけで、起動後は変えられない。このメソッドは
+        走行中のカーネルに対してフラグを差し替えるためのもの。auto_save / auto_restore が
+        None でないものだけを bool に正規化して反映し、None のフラグは現状維持する。
+
+        フラグの読み書きだけで user_ns には触れないため、セル実行と排他にする必要はない
+        （_run_on_main_loop を経由しない）。実行中でも割り込んで切り替えられる。結果（更新後の
+        現在値と、実際に変更した項目）を dict で返す。
+        """
+        changed = {}
+        if auto_save is not None:
+            self.auto_save = bool(auto_save)
+            changed["auto_save"] = self.auto_save
+        if auto_restore is not None:
+            self.auto_restore = bool(auto_restore)
+            changed["auto_restore"] = self.auto_restore
+        self.logger.info(
+            f"Auto mode updated: save={'on' if self.auto_save else 'off'}, "
+            f"restore={'on' if self.auto_restore else 'off'} "
+            f"(changed: {changed or 'none'})"
+        )
+        return {
+            "ok": True,
+            "auto_save": self.auto_save,
+            "auto_restore": self.auto_restore,
+            "changed": changed,
+        }
+
+    async def _on_set_auto_mode_request(self, stream, idents, parent):
+        """control チャネルの elastic_set_auto_mode ハンドラ。
+
+        リクエスト content の auto_save / auto_restore（いずれも省略可・bool）を読み、
+        _set_auto_mode でフラグを差し替えて現在値を返す。
+        """
+        self.logger.info("Received elastic_set_auto_mode (control channel)")
+        content = parent.get("content", {}) if isinstance(parent, dict) else {}
+        try:
+            result = self._set_auto_mode(
+                auto_save=content.get("auto_save"),
+                auto_restore=content.get("auto_restore"),
+            )
+        except Exception as e:
+            result = {"ok": False, "reason": "exception", "error": str(e)}
+        self.session.send(
+            stream,
+            "elastic_set_auto_mode_reply",
             content=result,
             parent=parent,
             ident=idents,

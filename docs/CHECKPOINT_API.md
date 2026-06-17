@@ -70,6 +70,7 @@ jupyter server extension disable elastic_kernel.serverextension
 | --- | --- |
 | `POST /elastic_kernel/checkpoint` | 対象カーネルの現在の状態を保存する |
 | `POST /elastic_kernel/restore` | 対象カーネルをチェックポイントから復元する（**破壊的**: `user_ns` を上書きする） |
+| `POST /elastic_kernel/auto_mode` | 走行中カーネルの自動保存/自動復元モードを**実行時に切り替える**（[自動挙動の切り替え](#自動挙動の切り替え)を参照） |
 
 ### リクエストボディ（JSON）
 
@@ -77,6 +78,11 @@ jupyter server extension disable elastic_kernel.serverextension
 | --- | --- | --- |
 | `kernel_id` | ○ | 対象カーネルの ID。`GET /api/kernels` や `GET /api/sessions` から取得する |
 | `timeout` | – | カーネルからの応答を待つ秒数（デフォルト 120） |
+| `auto_save` | – | （`auto_mode` のみ・bool）停止時の自動保存を ON/OFF する。省略時は据え置き |
+| `auto_restore` | – | （`auto_mode` のみ・bool）起動時の自動復元を ON/OFF する。省略時は据え置き |
+
+`auto_mode` は `auto_save` / `auto_restore` の少なくとも一方が必須（両方とも省略すると `400`）。
+いずれも bool 以外を渡すと `400`。応答は更新後の現在値（`{"ok": true, "auto_save": ..., "auto_restore": ..., "changed": {...}}`）。
 
 ### レスポンス
 
@@ -123,6 +129,12 @@ curl -s -X POST \
   -H "Authorization: token $TOK" -H "Content-Type: application/json" \
   -d '{"kernel_id":"<ID>"}' \
   "$BASE/elastic_kernel/restore"
+
+# 4) 自動保存だけ実行時に OFF（移行対象に決めた瞬間にその pod だけ手動へ倒す）
+curl -s -X POST \
+  -H "Authorization: token $TOK" -H "Content-Type: application/json" \
+  -d '{"kernel_id":"<ID>","auto_save":false}' \
+  "$BASE/elastic_kernel/auto_mode"
 ```
 
 > **注意（復元の破壊性）**: `restore` はカーネルの現在の名前空間を上書きし、必要なセルを
@@ -136,7 +148,11 @@ ElasticKernel はデフォルトで、**起動時にチェックポイントを�
 ほとんどのユーザーはこのままでよい。
 
 一方、外部オーケストレーターが保存/復元のタイミングを制御するカーネルでは、自動挙動の片方
-（または両方）が邪魔になる。**保存と復元は別々の環境変数で独立に**無効化できる。
+（または両方）が邪魔になる。**保存と復元は独立に**切り替えられる。設定は2段構えで、
+**環境変数が「起動時の初期モード」を決め**、**control メッセージ / REST が「実行時の上書き」**
+をする。
+
+### 1. 起動時の初期モード（環境変数）
 
 | 環境変数 | 既定 | 効果 |
 | --- | --- | --- |
@@ -146,13 +162,31 @@ ElasticKernel はデフォルトで、**起動時にチェックポイントを�
 未設定または上記以外の値なら、それぞれ従来どおり有効。無効化しても、このページで説明している
 **明示的な保存/復元（control メッセージ・REST API）は引き続き機能する**。
 
-### 値を読むのは「起動時」だけ
-
 両フラグは**カーネルの `__init__`（＝起動時）に一度だけ評価**され、`self.auto_save` /
-`self.auto_restore` に固定される。停止時の `do_shutdown` はこの固定値を参照するだけなので、
-**カーネルを停止する API 呼び出しに環境変数を渡しても自動保存の有無は変えられない**
-（停止時点ではもう決まっている）。自動保存を切りたいなら、**そのカーネルを起動するときに**
-環境変数を与えておく必要がある。
+`self.auto_restore` の初期値になる。停止時の `do_shutdown` はこの値を参照する。
+
+### 2. 実行時の上書き（control メッセージ / REST）
+
+起動後に判断を変えたい場合は、走行中のカーネルへ control メッセージ
+`elastic_set_auto_mode`（REST なら `POST /elastic_kernel/auto_mode`）を送って
+`self.auto_save` / `self.auto_restore` を差し替えられる。`auto_save` / `auto_restore` の
+うち**送ったものだけ**が更新され、省略したフラグは据え置き。応答は更新後の現在値を返す。
+
+フラグの読み書きだけで `user_ns` には触れないため、**セル実行中でも割り込んで切り替えられる**
+（保存/復元と違ってメインループの空き待ちが不要）。
+
+```python
+# control チャネル直送（同一ホスト）
+msg = client.session.msg("elastic_set_auto_mode", {"auto_save": False})
+client.control_channel.send(msg)
+print(client.get_control_msg(timeout=10)["content"])
+# {"ok": True, "auto_save": False, "auto_restore": True, "changed": {"auto_save": False}}
+```
+
+> **オーケストレーターでの使い方**: 全 pod を `auto`（既定）のまま起動しておき、**移行対象に
+> 決めた瞬間にその pod だけ** `auto_save=false` へ倒してから保存→旧 pod 削除、という流れに
+> できる。env を起動時に固定する方式と違い、「移行する pod だけ手動」を後から選べるので、
+> culling 等の通常停止で保存されなくなる副作用（下記）を移行対象以外には及ぼさずに済む。
 
 ### ElasticHub zero-reload マイグレーションでの使い分け
 
@@ -209,6 +243,7 @@ client.load_connection_file("<jupyter runtime dir>/kernel-<kernel_id>.json")
 client.start_channels()
 
 msg = client.session.msg("elastic_checkpoint_request", {})  # 復元は elastic_restore_request
+# モード切り替えなら elastic_set_auto_mode（content に auto_save/auto_restore を載せる）
 client.control_channel.send(msg)
 print(client.get_control_msg(timeout=120)["content"])       # {"ok": True, ...}
 
