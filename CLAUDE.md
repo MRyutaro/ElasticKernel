@@ -184,6 +184,19 @@ uv run pytest
   - すでに作業用ブランチ上にいて、その作業の続きをしている場合
 - 規模が大きい、複数ファイルにまたがる、main 上で作業しそうになっている、並行して別の作業が走る、などの場合は worktree + ブランチを作成する。
 
+### 後片付け（PR マージ後）
+
+作業用の PR がマージされたら、放置せず後片付けする。具体的には次を行う:
+
+1. **マージ済みを確認**してから片付ける（`gh pr view <PR番号> --json state,mergedAt`）。未マージのものは消さない。
+2. **worktree を削除**する（未コミット変更が無いことを確認してから）: `git worktree remove <path>` → `git worktree prune`。
+3. **マージ済みのローカルブランチを削除**する: `git branch -d <branch>`（`-D` は使わず、未マージなら立ち止まる）。
+4. **削除済みリモート追跡ブランチを整理**する: `git fetch --prune origin`。
+5. **main を最新化**する: `git checkout main` → `git pull --ff-only origin main`。
+6. 検証用に作った**一時ファイル・スクラッチ（`/tmp` 配下のスクリプトや一時ディレクトリ等）を削除**する。
+
+なお worktree / ブランチを作らずに進めた軽微な作業（現在のブランチでそのまま作業した場合）は、上記のうち worktree 削除は不要。
+
 ## PR作成時の注意
 
 - PR を作成するとき、対応する Issue がある場合は PR 本文に `close #<issue番号>` を記載して、PR のマージ時に Issue が自動で close されるようにする（複数 Issue がある場合はそれぞれに `close #<issue番号>` を書く）。
