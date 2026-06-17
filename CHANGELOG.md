@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2](https://github.com/MRyutaro/ElasticKernel/compare/v0.1.1...v0.1.2) (2026-06-17)
+
+
+### Documentation
+
+* document post-merge cleanup steps in CLAUDE.md ([81c286d](https://github.com/MRyutaro/ElasticKernel/commit/81c286d92b813538ef9322d22b6ce78883814aa9))
+* document post-merge cleanup steps in CLAUDE.md ([7d2fc77](https://github.com/MRyutaro/ElasticKernel/commit/7d2fc77dbef481d4fd056230eb3d14f6d10a0429))
+* keep feature-experiment branch (cleanup exception) ([1d68702](https://github.com/MRyutaro/ElasticKernel/commit/1d6870241f8acc43eaf883d3999d7a3896cc6c5f))
+
 ## [0.1.1](https://github.com/MRyutaro/ElasticKernel/compare/v0.1.0...v0.1.1) (2026-06-17)
 
 
