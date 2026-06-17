@@ -12,6 +12,7 @@ import logging
 import types
 
 import pytest
+from ipykernel.ipkernel import IPythonKernel
 
 from elastic_kernel.kernel import ElasticKernel
 
@@ -231,3 +232,61 @@ def test_load_registers_handlers():
     paths = [pattern for pattern, _handler in registered]
     assert any("checkpoint" in p for p in paths)
     assert any("restore" in p for p in paths)
+
+
+# --------------------------------------------------------------------------- #
+# auto checkpoint/restore toggle (ELASTIC_KERNEL_AUTO_CHECKPOINT)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, True),  # 未設定はデフォルト ON
+        ("", True),  # 空文字も ON 扱い（明示的な falsy 値のみ OFF）
+        ("1", True),
+        ("true", True),
+        ("yes", True),
+        ("0", False),
+        ("false", False),
+        ("False", False),  # 大文字小文字は無視
+        ("  OFF  ", False),  # 前後空白は無視
+        ("no", False),
+    ],
+)
+def test_auto_checkpoint_from_env(value, expected):
+    assert ElasticKernel._auto_checkpoint_from_env(value) is expected
+
+
+def _shutdown_stub(auto_checkpoint):
+    """do_shutdown のゲーティングだけを検証するための最小インスタンス。"""
+    obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
+    obj.auto_checkpoint = auto_checkpoint
+    obj.logger = logging.getLogger("elastic-test")
+    obj._save_checkpoint_calls = []
+    obj._save_checkpoint = lambda: obj._save_checkpoint_calls.append(True)
+    return obj
+
+
+def test_do_shutdown_saves_when_auto_enabled(monkeypatch):
+    super_calls = []
+    monkeypatch.setattr(
+        IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
+    )
+    obj = _shutdown_stub(auto_checkpoint=True)
+
+    ElasticKernel.do_shutdown(obj, False)
+
+    assert obj._save_checkpoint_calls == [True]
+    assert super_calls == [False]  # 通常のシャットダウンは継続する
+
+
+def test_do_shutdown_skips_save_when_auto_disabled(monkeypatch):
+    super_calls = []
+    monkeypatch.setattr(
+        IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
+    )
+    obj = _shutdown_stub(auto_checkpoint=False)
+
+    ElasticKernel.do_shutdown(obj, True)
+
+    assert obj._save_checkpoint_calls == []  # 自動保存はスキップ
+    assert super_calls == [True]  # それでも通常のシャットダウンは継続する
