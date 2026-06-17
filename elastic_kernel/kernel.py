@@ -81,28 +81,31 @@ class ElasticKernel(IPythonKernel):
                 "Continuing without checkpoint tracking (plain kernel mode)."
             )
 
-        # 起動時の自動復元 / 終了時の自動保存を行うかどうか。
-        # ElasticHub のクラウドバースティング等で、オーケストレーターがマイグレーション
-        # 対象のカーネルを「手動 checkpoint/restore（control メッセージ）だけで制御したい」
-        # ケースがある。そのときは起動時の自動 restore と終了時の自動 save が
-        # 転送やハンドシェイクの順序制御を壊すため、環境変数で自動挙動を無効化できる。
-        # 通常ユーザーのカーネルは環境変数を付けないのでデフォルト（自動 ON）のまま。
-        self.auto_checkpoint = self._auto_checkpoint_from_env(
-            os.environ.get("ELASTIC_KERNEL_AUTO_CHECKPOINT")
+        # 起動時の自動復元 / 終了時の自動保存を、それぞれ独立に有効/無効化できる。
+        # ElasticHub の zero-reload マイグレーションでは、旧カーネルを「殺さずに」明示 API
+        # (POST /elastic_kernel/checkpoint) で保存するため、終了時(do_shutdown)の自動保存は
+        # 不要かつ有害（共有 NFS 上の checkpoint を二重に上書きし、teardown を遅らせる）。
+        # 一方、復元は新 pod の __init__ 自動ロード（elastic_id_shim の同一 kernel_id 起動）に
+        # 依存しているため有効のまま使いたい。save と restore で必要な向きが逆なので、別々の
+        # 環境変数で制御する。どちらも未設定ならデフォルト ON（通常ユーザーは従来どおり）。
+        self.auto_save = self._env_flag(os.environ.get("ELASTIC_KERNEL_AUTO_SAVE"))
+        self.auto_restore = self._env_flag(
+            os.environ.get("ELASTIC_KERNEL_AUTO_RESTORE")
         )
         self.logger.info(
-            f"Auto checkpoint/restore: {'enabled' if self.auto_checkpoint else 'disabled'}"
+            f"Auto checkpoint: save={'on' if self.auto_save else 'off'}, "
+            f"restore={'on' if self.auto_restore else 'off'}"
         )
 
         # 起動時にチェックポイントファイルがあれば復元する。
         # 復元ロジックは _restore_checkpoint() に共通化されており、外部オーケストレーター
         # からの control メッセージ経由でも同じ処理を再利用する。
-        # 自動が無効でも、control メッセージ経由の明示的な restore は引き続き機能する。
-        if self.auto_checkpoint:
+        # 自動復元が無効でも、control メッセージ経由の明示的な restore は引き続き機能する。
+        if self.auto_restore:
             self._restore_checkpoint()
         else:
             self.logger.info(
-                "Skipping startup auto-restore (auto checkpoint/restore disabled)."
+                "Skipping startup auto-restore (ELASTIC_KERNEL_AUTO_RESTORE disabled)."
             )
 
         # 外部オーケストレーターから任意タイミングで保存/復元を発火できるよう、control
@@ -230,17 +233,17 @@ class ElasticKernel(IPythonKernel):
         """
         self.logger = setup_logger("ElasticKernelLogger", self.log_file_path)
 
-    # 自動 checkpoint/restore を無効化とみなす環境変数の値（大文字小文字は無視）。
+    # 真偽フラグ系の環境変数で「無効」とみなす値（大文字小文字は無視）。
     _FALSY_ENV_VALUES = frozenset({"0", "false", "no", "off"})
 
     @staticmethod
-    def _auto_checkpoint_from_env(value):
+    def _env_flag(value):
         """
-        環境変数 ELASTIC_KERNEL_AUTO_CHECKPOINT の値から、起動時の自動復元・終了時の
-        自動保存を行うかどうかを判定する。
+        真偽フラグ系の環境変数の値を bool に解釈する。
 
-        未設定（None、デフォルト）なら True（従来どおり自動 ON）。
+        未設定（None、デフォルト）なら True（従来どおり有効）。
         "0" / "false" / "no" / "off"（大文字小文字・前後空白は無視）なら False。
+        それ以外の値は True。
         """
         if value is None:
             return True
@@ -553,12 +556,13 @@ class ElasticKernel(IPythonKernel):
         """
         # 保存ロジックは _save_checkpoint() に共通化。plain-kernel モードの判定もこの中で行い、
         # いずれの場合も通常のシャットダウンを継続する。(D-13)
-        # 自動が無効なら終了時の保存はスキップする（control メッセージ経由の明示保存のみ使う）。
-        if self.auto_checkpoint:
+        # 自動保存が無効なら終了時の保存はスキップする（明示 API / control メッセージで保存する
+        # 運用向け。明示保存は無効化後も引き続き機能する）。
+        if self.auto_save:
             self._save_checkpoint()
         else:
             self.logger.info(
-                "Skipping shutdown auto-save (auto checkpoint/restore disabled)."
+                "Skipping shutdown auto-save (ELASTIC_KERNEL_AUTO_SAVE disabled)."
             )
         return super().do_shutdown(restart)
 

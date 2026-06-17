@@ -165,7 +165,7 @@ uv run pytest
 
 - チェックポイントファイルはファイル名ではなくノートブックのinode番号のハッシュを使用（セッション継続中はリネームに対応）
 - 環境変数 `ELASTIC_KERNEL_LOG_LEVEL` でログの詳細度を制御（デフォルト: INFO）
-- 環境変数 `ELASTIC_KERNEL_AUTO_CHECKPOINT=0`（`false`/`no`/`off` も可）で、起動時の自動復元と停止時の自動保存を両方無効化できる（デフォルトは自動有効）。外部オーケストレーターが control メッセージ/REST で明示制御するカーネル（ElasticHub のクラウド→オンプレ・マイグレーション等）向け。明示 API は無効化後も動く。詳細は `docs/CHECKPOINT_API.md` の「自動挙動の切り替え」を参照
+- 環境変数 `ELASTIC_KERNEL_AUTO_SAVE=0` / `ELASTIC_KERNEL_AUTO_RESTORE=0`（`false`/`no`/`off` も可）で、停止時の自動保存・起動時の自動復元を**それぞれ独立に**無効化できる（デフォルトは両方有効）。両フラグは `__init__`（起動時）に一度だけ評価され固定されるので、停止 API に env を渡しても変えられない。ElasticHub の zero-reload マイグレーションは「明示 API で保存・`__init__` 自動復元で戻す」ため `AUTO_SAVE=0`・`AUTO_RESTORE` 既定のまま、が想定。明示 API は無効化後も動く。詳細は `docs/CHECKPOINT_API.md` の「自動挙動の切り替え」を参照
 - マジックコマンド（!, %, %%）は意図的に依存関係追跡からスキップされる
 - dillをシリアライゼーションに使用（Pythonオブジェクトに対してpickleより強力）
 - マイグレーション速度のプロファイリングは `alpha` パラメータを使用してコストスケーリングを調整

@@ -235,7 +235,7 @@ def test_load_registers_handlers():
 
 
 # --------------------------------------------------------------------------- #
-# auto checkpoint/restore toggle (ELASTIC_KERNEL_AUTO_CHECKPOINT)
+# auto save/restore toggles (ELASTIC_KERNEL_AUTO_SAVE / ELASTIC_KERNEL_AUTO_RESTORE)
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "value, expected",
@@ -252,26 +252,26 @@ def test_load_registers_handlers():
         ("no", False),
     ],
 )
-def test_auto_checkpoint_from_env(value, expected):
-    assert ElasticKernel._auto_checkpoint_from_env(value) is expected
+def test_env_flag(value, expected):
+    assert ElasticKernel._env_flag(value) is expected
 
 
-def _shutdown_stub(auto_checkpoint):
+def _shutdown_stub(auto_save):
     """do_shutdown のゲーティングだけを検証するための最小インスタンス。"""
     obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
-    obj.auto_checkpoint = auto_checkpoint
+    obj.auto_save = auto_save
     obj.logger = logging.getLogger("elastic-test")
     obj._save_checkpoint_calls = []
     obj._save_checkpoint = lambda: obj._save_checkpoint_calls.append(True)
     return obj
 
 
-def test_do_shutdown_saves_when_auto_enabled(monkeypatch):
+def test_do_shutdown_saves_when_auto_save_enabled(monkeypatch):
     super_calls = []
     monkeypatch.setattr(
         IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
     )
-    obj = _shutdown_stub(auto_checkpoint=True)
+    obj = _shutdown_stub(auto_save=True)
 
     ElasticKernel.do_shutdown(obj, False)
 
@@ -279,12 +279,12 @@ def test_do_shutdown_saves_when_auto_enabled(monkeypatch):
     assert super_calls == [False]  # 通常のシャットダウンは継続する
 
 
-def test_do_shutdown_skips_save_when_auto_disabled(monkeypatch):
+def test_do_shutdown_skips_save_when_auto_save_disabled(monkeypatch):
     super_calls = []
     monkeypatch.setattr(
         IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
     )
-    obj = _shutdown_stub(auto_checkpoint=False)
+    obj = _shutdown_stub(auto_save=False)
 
     ElasticKernel.do_shutdown(obj, True)
 
