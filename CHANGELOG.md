@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.0](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.34...v0.1.0) (2026-06-17)
+
+
+### Features
+
+* add on-demand checkpoint/restore API for external orchestrators ([8c0baba](https://github.com/MRyutaro/ElasticKernel/commit/8c0babaf30f16def846e8045cb4c4fa3a8b1dba4))
+* add on-demand checkpoint/restore API for external orchestrators ([7599e2e](https://github.com/MRyutaro/ElasticKernel/commit/7599e2efaf2547f261b771f9563562340977e89c))
+
+
+### Bug Fixes
+
+* prevent kernel crash when JPY_SESSION_NAME is unset ([a22c0ad](https://github.com/MRyutaro/ElasticKernel/commit/a22c0ada654c45aaa185b8966d34aa8ef3ed17af))
+* prevent kernel crash when JPY_SESSION_NAME is unset ([6c6f087](https://github.com/MRyutaro/ElasticKernel/commit/6c6f08723b93c49eff84c3d6bb505590949fc5b5)), closes [#15](https://github.com/MRyutaro/ElasticKernel/issues/15)
+
+
+### Documentation
+
+* clarify _run_on_main_loop docstring (control vs main loop marshaling) ([986b173](https://github.com/MRyutaro/ElasticKernel/commit/986b1733a7e7a2e7634306054f2c7c0a189aee10))
+* document the on-demand checkpoint/restore API ([3239260](https://github.com/MRyutaro/ElasticKernel/commit/3239260f088858033654e0874905435005c176cc))
+
 ## [0.0.34](https://github.com/MRyutaro/ElasticKernel/compare/v0.0.33...v0.0.34) (2026-06-15)
 
 
