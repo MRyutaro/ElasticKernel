@@ -4,12 +4,22 @@ permissions:
   contents: write
 
 on:
+  # Python ファイルか整形設定(pyproject.toml)、このワークフロー自体が変わったときだけ走らせる。
+  # ドキュメントのみの変更では整形ジョブをスキップする。
   push:
     branches:
       - "main"
+    paths:
+      - "**/*.py"
+      - "pyproject.toml"
+      - ".github/workflows/format-python-code.yml"
   pull_request:
     branches:
       - "main"
+    paths:
+      - "**/*.py"
+      - "pyproject.toml"
+      - ".github/workflows/format-python-code.yml"
 
 jobs:
   auto-format:

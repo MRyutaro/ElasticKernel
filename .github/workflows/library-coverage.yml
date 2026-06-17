@@ -1,12 +1,30 @@
 name: Library coverage
 
 on:
+  # コード・テスト・依存・カバレッジ生成スクリプト・このワークフロー自体が変わったときだけ
+  # 走らせる。ドキュメントのみの変更ではスキップする（workflow_dispatch で手動実行は可能）。
   push:
     branches:
       - "main"
+    paths:
+      - "elastic_kernel/**"
+      - "elastic_notebook/**"
+      - "tests/**"
+      - "scripts/library_coverage.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/library-coverage.yml"
   pull_request:
     branches:
       - "main"
+    paths:
+      - "elastic_kernel/**"
+      - "elastic_notebook/**"
+      - "tests/**"
+      - "scripts/library_coverage.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/library-coverage.yml"
   workflow_dispatch:
 
 # Needed so the job can commit the regenerated coverage table back to the branch.
