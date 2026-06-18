@@ -165,6 +165,7 @@ uv run pytest
 
 - チェックポイントファイルはファイル名ではなくノートブックのinode番号のハッシュを使用（セッション継続中はリネームに対応）
 - 環境変数 `ELASTIC_KERNEL_LOG_LEVEL` でログの詳細度を制御（デフォルト: INFO）
+- 環境変数 `ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN=0` / `ELASTIC_KERNEL_RESTORE_ON_STARTUP=0`（`false`/`no`/`off` も可）で、停止時の自動保存・起動時の自動復元を**それぞれ独立に**無効化できる（デフォルトは両方有効）。これは**起動時の初期モード**を決めるもので、`__init__`（起動時）に一度だけ評価され `self.checkpoint_on_shutdown` / `self.restore_on_startup` の初期値になる。**停止時の自動保存**は起動後も control メッセージ `elastic_set_checkpoint_on_shutdown`（REST: `POST /elastic_kernel/checkpoint_on_shutdown`）で**実行時に上書き**できる（`{enabled: bool}` を送ると差し替え、現在値を返す。`user_ns` に触れないのでセル実行中でも割り込める。`GET` は read-only 照会）。一方**復元は起動時の一度きりのイベント**なので実行時切り替えの対象外（env と起動時ログでのみ制御/確認）。ElasticHub の zero-reload マイグレーションは「明示 API で保存・明示 API で復元」する。とくに復元はカーネルを先に起動して待機させ任意のタイミングで明示復元することで再起動時間をクリティカルパスから外す（`__init__` 自動復元には頼らない）。全 pod を auto のまま起動し、移行対象に決めた pod だけ実行時に終了時の自動保存を `false` へ倒す運用が可能。明示 API は無効化後も動く。詳細は `docs/CHECKPOINT_API.md` の「自動挙動の切り替え」を参照
 - マジックコマンド（!, %, %%）は意図的に依存関係追跡からスキップされる
 - dillをシリアライゼーションに使用（Pythonオブジェクトに対してpickleより強力）
 - マイグレーション速度のプロファイリングは `alpha` パラメータを使用してコストスケーリングを調整
@@ -203,6 +204,7 @@ uv run pytest
 
 - PR を作成するとき、対応する Issue がある場合は PR 本文に `close #<issue番号>` を記載して、PR のマージ時に Issue が自動で close されるようにする（複数 Issue がある場合はそれぞれに `close #<issue番号>` を書く）。
 - `close` のほか `closes` / `closed` / `fix` / `fixes` / `fixed` / `resolve` / `resolves` / `resolved` も同じく自動 close キーワードとして使える。
+- PR 本文に「変更ファイル」の一覧は書かない。GitHub の「Files changed」タブで十分なので、本文は背景・課題・変更内容・検証などに集中させる。
 
 ## 開発時のテスト
 

@@ -1,11 +1,14 @@
 """Jupyter Server 拡張: 外部オーケストレーター向けの REST チェックポイント/復元 API。
 
 このモジュールは Jupyter Server（JupyterLab の裏で動く Web サーバー）に
-``POST /elastic_kernel/checkpoint`` と ``POST /elastic_kernel/restore`` の2つの
-エンドポイントを追加する。リクエストは ``kernel_id`` で対象カーネルを指定し、ハンドラは
-そのカーネルの control チャネルへカスタムメッセージ（``elastic_checkpoint_request`` /
-``elastic_restore_request``）を送り、カーネル側（elastic_kernel.kernel）が返す reply を
-HTTP レスポンスとして中継する。
+``POST /elastic_kernel/checkpoint`` ・ ``POST /elastic_kernel/restore`` ・
+``GET|POST /elastic_kernel/checkpoint_on_shutdown`` の3つのエンドポイントを追加する。
+リクエストは ``kernel_id`` で対象カーネルを指定し、ハンドラはそのカーネルの control
+チャネルへカスタムメッセージ（``elastic_checkpoint_request`` /
+``elastic_restore_request`` / ``elastic_set_checkpoint_on_shutdown``）を送り、カーネル側
+（elastic_kernel.kernel）が返す reply を HTTP レスポンスとして中継する。
+``checkpoint_on_shutdown`` は走行中のカーネルの「終了時の自動保存」を実行時に切り替える
+（``POST``、env による起動時モードの実行時上書き）／現在値を照会する（``GET``、read-only）。
 
 注意:
 - このモジュールは Jupyter Server プロセス側でのみロードされる。カーネルプロセスからは
@@ -25,22 +28,28 @@ from tornado import web
 # control チャネルへ送るリクエスト種別と、対応する reply 種別。
 _CHECKPOINT = ("elastic_checkpoint_request", "elastic_checkpoint_reply")
 _RESTORE = ("elastic_restore_request", "elastic_restore_reply")
+_CHECKPOINT_ON_SHUTDOWN = (
+    "elastic_set_checkpoint_on_shutdown",
+    "elastic_set_checkpoint_on_shutdown_reply",
+)
 
 # reply を待つデフォルトのタイムアウト（秒）。body の "timeout" で上書き可。
 _DEFAULT_TIMEOUT = 120.0
 
 
-async def _send_and_await(kernel, request_type, reply_type, timeout):
+async def _send_and_await(kernel, request_type, reply_type, timeout, content=None):
     """対象カーネルの control チャネルへ request_type を送り、reply_type を await して返す。
 
     新しいクライアント（= JupyterLab とは別の接続）を一時的に開いて control チャネルに
     送る。control チャネルは複数クライアント可で、reply は送信元へルーティングされる。
     クライアントは km.client() で生成されるため署名キーがカーネルと一致する。
+
+    content にメッセージのペイロード（checkpoint_on_shutdown の enabled 等）を渡せる。
     """
     client = kernel.client()
     client.start_channels()
     try:
-        msg = client.session.msg(request_type, {})
+        msg = client.session.msg(request_type, content or {})
         msg_id = msg["header"]["msg_id"]
         client.control_channel.send(msg)
 
@@ -64,7 +73,7 @@ async def _send_and_await(kernel, request_type, reply_type, timeout):
 class _ElasticBaseHandler(APIHandler):
     """checkpoint/restore 共通の処理。kernel_id 解決 → control 送信 → JSON 応答。"""
 
-    async def _dispatch(self, request_type, reply_type):
+    async def _dispatch(self, request_type, reply_type, payload=None):
         body = self.get_json_body() or {}
         kernel_id = body.get("kernel_id") or self.get_argument("kernel_id", None)
         if not kernel_id:
@@ -81,7 +90,9 @@ class _ElasticBaseHandler(APIHandler):
             raise web.HTTPError(400, "timeout must be a number")
 
         try:
-            content = await _send_and_await(kernel, request_type, reply_type, timeout)
+            content = await _send_and_await(
+                kernel, request_type, reply_type, timeout, payload
+            )
         except (TimeoutError, Empty):
             raise web.HTTPError(504, "kernel did not reply in time")
 
@@ -102,6 +113,34 @@ class RestoreHandler(_ElasticBaseHandler):
         await self._dispatch(*_RESTORE)
 
 
+class CheckpointOnShutdownHandler(_ElasticBaseHandler):
+    """走行中カーネルの「終了時の自動保存」を実行時に切り替える / 照会する。
+
+    - ``POST`` … body の ``enabled``（必須・bool）を control メッセージのペイロードに
+      載せて送り、フラグを差し替える。
+    - ``GET`` … 何も変更せず、現在値（checkpoint_on_shutdown）を返す（read-only）。
+      ``kernel_id`` はクエリ引数で渡す（例: ``?kernel_id=<id>``）。
+
+    なお復元(restore)は起動時の一度きりのイベントで、実行時に切り替えても効果がないため、
+    実行時の切り替え対象は保存側のみとする（復元は env と起動時ログでのみ制御/確認する）。
+    """
+
+    @web.authenticated
+    async def post(self):
+        body = self.get_json_body() or {}
+        enabled = body.get("enabled")
+        if enabled is None:
+            raise web.HTTPError(400, "enabled is required")
+        if not isinstance(enabled, bool):
+            raise web.HTTPError(400, "enabled must be a boolean")
+        await self._dispatch(*_CHECKPOINT_ON_SHUTDOWN, payload={"enabled": enabled})
+
+    @web.authenticated
+    async def get(self):
+        # 空ペイロードで送ると、カーネルは何も変更せず現在値（changed: False）を返す。
+        await self._dispatch(*_CHECKPOINT_ON_SHUTDOWN, payload={})
+
+
 def _jupyter_server_extension_points():
     return [{"module": "elastic_kernel.serverextension"}]
 
@@ -113,9 +152,14 @@ def _load_jupyter_server_extension(server_app):
     handlers = [
         (url_path_join(base_url, "elastic_kernel", "checkpoint"), CheckpointHandler),
         (url_path_join(base_url, "elastic_kernel", "restore"), RestoreHandler),
+        (
+            url_path_join(base_url, "elastic_kernel", "checkpoint_on_shutdown"),
+            CheckpointOnShutdownHandler,
+        ),
     ]
     web_app.add_handlers(".*$", handlers)
     server_app.log.info(
         "elastic_kernel server extension loaded: "
-        "POST /elastic_kernel/checkpoint, POST /elastic_kernel/restore"
+        "POST /elastic_kernel/checkpoint, POST /elastic_kernel/restore, "
+        "GET|POST /elastic_kernel/checkpoint_on_shutdown"
     )

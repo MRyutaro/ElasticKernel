@@ -12,6 +12,7 @@ import logging
 import types
 
 import pytest
+from ipykernel.ipkernel import IPythonKernel
 
 from elastic_kernel.kernel import ElasticKernel
 
@@ -231,3 +232,167 @@ def test_load_registers_handlers():
     paths = [pattern for pattern, _handler in registered]
     assert any("checkpoint" in p for p in paths)
     assert any("restore" in p for p in paths)
+    assert any("checkpoint_on_shutdown" in p for p in paths)
+
+
+def test_checkpoint_on_shutdown_handler_supports_get_and_post():
+    pytest.importorskip("jupyter_server")
+    from elastic_kernel.serverextension import CheckpointOnShutdownHandler
+
+    # POST（切り替え）と GET（read-only 照会）の両方をクラス自身で定義している。
+    # （@web.authenticated でラップされるため iscoroutinefunction は使えない）
+    assert callable(CheckpointOnShutdownHandler.__dict__.get("post"))
+    assert callable(CheckpointOnShutdownHandler.__dict__.get("get"))
+
+
+# --------------------------------------------------------------------------- #
+# startup/shutdown auto toggles
+# (ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN / ELASTIC_KERNEL_RESTORE_ON_STARTUP)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, True),  # 未設定はデフォルト ON
+        ("", True),  # 空文字も ON 扱い（明示的な falsy 値のみ OFF）
+        ("1", True),
+        ("true", True),
+        ("yes", True),
+        ("0", False),
+        ("false", False),
+        ("False", False),  # 大文字小文字は無視
+        ("  OFF  ", False),  # 前後空白は無視
+        ("no", False),
+    ],
+)
+def test_env_flag(value, expected):
+    assert ElasticKernel._env_flag(value) is expected
+
+
+def _shutdown_stub(checkpoint_on_shutdown):
+    """do_shutdown のゲーティングだけを検証するための最小インスタンス。"""
+    obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
+    obj.checkpoint_on_shutdown = checkpoint_on_shutdown
+    obj.logger = logging.getLogger("elastic-test")
+    obj._save_checkpoint_calls = []
+    obj._save_checkpoint = lambda: obj._save_checkpoint_calls.append(True)
+    return obj
+
+
+def test_do_shutdown_saves_when_enabled(monkeypatch):
+    super_calls = []
+    monkeypatch.setattr(
+        IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
+    )
+    obj = _shutdown_stub(checkpoint_on_shutdown=True)
+
+    ElasticKernel.do_shutdown(obj, False)
+
+    assert obj._save_checkpoint_calls == [True]
+    assert super_calls == [False]  # 通常のシャットダウンは継続する
+
+
+def test_do_shutdown_skips_save_when_disabled(monkeypatch):
+    super_calls = []
+    monkeypatch.setattr(
+        IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
+    )
+    obj = _shutdown_stub(checkpoint_on_shutdown=False)
+
+    ElasticKernel.do_shutdown(obj, True)
+
+    assert obj._save_checkpoint_calls == []  # 自動保存はスキップ
+    assert super_calls == [True]  # それでも通常のシャットダウンは継続する
+
+
+# --------------------------------------------------------------------------- #
+# runtime checkpoint_on_shutdown switch
+# (elastic_set_checkpoint_on_shutdown / POST /elastic_kernel/checkpoint_on_shutdown)
+# --------------------------------------------------------------------------- #
+def _checkpoint_on_shutdown_stub(checkpoint_on_shutdown):
+    """_set_checkpoint_on_shutdown のフラグ差し替えだけを検証する最小インスタンス。"""
+    obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
+    obj.checkpoint_on_shutdown = checkpoint_on_shutdown
+    obj.logger = logging.getLogger("elastic-test")
+    return obj
+
+
+def test_set_checkpoint_on_shutdown_updates():
+    obj = _checkpoint_on_shutdown_stub(checkpoint_on_shutdown=True)
+
+    result = obj._set_checkpoint_on_shutdown(enabled=False)
+
+    assert obj.checkpoint_on_shutdown is False
+    assert result == {
+        "ok": True,
+        "checkpoint_on_shutdown": False,
+        "changed": True,
+    }
+
+
+def test_set_checkpoint_on_shutdown_normalizes_to_bool():
+    obj = _checkpoint_on_shutdown_stub(checkpoint_on_shutdown=False)
+
+    result = obj._set_checkpoint_on_shutdown(enabled=1)
+
+    assert obj.checkpoint_on_shutdown is True
+    assert result["checkpoint_on_shutdown"] is True
+    assert result["changed"] is True
+
+
+def test_set_checkpoint_on_shutdown_read_only_leaves_unchanged():
+    # GET /checkpoint_on_shutdown 相当: enabled=None で呼ぶと何も変えず現在値を返す。
+    obj = _checkpoint_on_shutdown_stub(checkpoint_on_shutdown=True)
+
+    result = obj._set_checkpoint_on_shutdown()
+
+    assert obj.checkpoint_on_shutdown is True  # 据え置き
+    assert result == {
+        "ok": True,
+        "checkpoint_on_shutdown": True,
+        "changed": False,
+    }
+
+
+def test_set_checkpoint_on_shutdown_handler_is_coroutine():
+    assert inspect.iscoroutinefunction(
+        ElasticKernel._on_set_checkpoint_on_shutdown_request
+    )
+
+
+def test_set_checkpoint_on_shutdown_handler_sends_reply():
+    sent = []
+    # session は traitlets で検証されるため、real instance ではなく軽量スタブを使う。
+    s = types.SimpleNamespace(
+        checkpoint_on_shutdown=True,
+        logger=logging.getLogger("elastic-test"),
+        session=types.SimpleNamespace(
+            send=lambda stream, msg_type, content, parent, ident: sent.append(
+                (msg_type, content, parent, ident)
+            )
+        ),
+    )
+    s._set_checkpoint_on_shutdown = (
+        lambda **kw: ElasticKernel._set_checkpoint_on_shutdown(s, **kw)
+    )
+
+    parent = {
+        "header": {"msg_id": "req-1"},
+        "content": {"enabled": False},
+    }
+
+    asyncio.run(
+        ElasticKernel._on_set_checkpoint_on_shutdown_request(
+            s, "stream", b"ident", parent
+        )
+    )
+
+    assert len(sent) == 1
+    msg_type, content, sent_parent, ident = sent[0]
+    assert msg_type == "elastic_set_checkpoint_on_shutdown_reply"
+    assert content["ok"] is True
+    assert content["checkpoint_on_shutdown"] is False
+    assert content["changed"] is True
+    assert sent_parent is parent
+    assert ident == b"ident"
+    # フラグが実際に差し替わっている。
+    assert s.checkpoint_on_shutdown is False
