@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/MRyutaro/ElasticKernel/compare/v0.1.2...v0.2.0) (2026-06-18)
+
+
+### Features
+
+* add ELASTIC_KERNEL_AUTO_CHECKPOINT to toggle auto checkpoint/restore ([47dff77](https://github.com/MRyutaro/ElasticKernel/commit/47dff77bbbd7163bc17e91bb1003ca663723e9de))
+* GET /elastic_kernel/auto_mode で現在モードを照会できるようにする ([6e39538](https://github.com/MRyutaro/ElasticKernel/commit/6e395380b07717eb8087ac6d1f3e50e7aa1a5d5a))
+* 自動保存/復元モードを実行時に切り替える control / REST を追加 ([7947fe6](https://github.com/MRyutaro/ElasticKernel/commit/7947fe6968586aa8c380c9b5b57064af2de702ae))
+* 自動保存/復元を起動時(env)で個別に、停止時の自動保存は実行時(REST/control)でも切替可能に ([d7049b8](https://github.com/MRyutaro/ElasticKernel/commit/d7049b8c0eb2ca060a856a09978e446b5f48eafe))
+
+
+### Documentation
+
+* PR 本文に変更ファイル一覧を書かない方針を CLAUDE.md に追記 ([561563a](https://github.com/MRyutaro/ElasticKernel/commit/561563a54c505795a054b3c9a693e27ae85eb804))
+* server 拡張有効化メッセージに auto_mode を追記 ([99e929a](https://github.com/MRyutaro/ElasticKernel/commit/99e929ad71eca53ef8cd929a7e7fcd1a96a17f51))
+* 復元の枠組みを「先起動＋任意タイミング明示復元」に修正 ([de09e9f](https://github.com/MRyutaro/ElasticKernel/commit/de09e9ff63feeca771572a8ae0b91cee33874d78))
+
 ## [0.1.2](https://github.com/MRyutaro/ElasticKernel/compare/v0.1.1...v0.1.2) (2026-06-17)
 
 
