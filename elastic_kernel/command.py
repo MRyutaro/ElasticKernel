@@ -46,7 +46,7 @@ def enable_server_extension():
     )
     print(
         "Elastic Kernel server extension enabled "
-        "(POST /elastic_kernel/checkpoint, /restore)."
+        "(POST /elastic_kernel/checkpoint, /restore, GET|POST /auto_mode)."
     )
     return True
 
