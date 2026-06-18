@@ -235,6 +235,16 @@ def test_load_registers_handlers():
     assert any("auto_mode" in p for p in paths)
 
 
+def test_auto_mode_handler_supports_get_and_post():
+    pytest.importorskip("jupyter_server")
+    from elastic_kernel.serverextension import AutoModeHandler
+
+    # POST（切り替え）と GET（read-only 照会）の両方をクラス自身で定義している。
+    # （@web.authenticated でラップされるため iscoroutinefunction は使えない）
+    assert callable(AutoModeHandler.__dict__.get("post"))
+    assert callable(AutoModeHandler.__dict__.get("get"))
+
+
 # --------------------------------------------------------------------------- #
 # auto save/restore toggles (ELASTIC_KERNEL_AUTO_SAVE / ELASTIC_KERNEL_AUTO_RESTORE)
 # --------------------------------------------------------------------------- #
@@ -341,6 +351,22 @@ def test_set_auto_mode_normalizes_to_bool():
     assert obj.auto_restore is False
     assert result["auto_save"] is True
     assert result["auto_restore"] is False
+
+
+def test_set_auto_mode_read_only_leaves_both_unchanged():
+    # GET /auto_mode 相当: フラグ無し（両方 None）で呼ぶと何も変更せず現在値を返す。
+    obj = _auto_mode_stub(auto_save=True, auto_restore=False)
+
+    result = obj._set_auto_mode()
+
+    assert obj.auto_save is True  # 据え置き
+    assert obj.auto_restore is False  # 据え置き
+    assert result == {
+        "ok": True,
+        "auto_save": True,
+        "auto_restore": False,
+        "changed": {},
+    }
 
 
 def test_set_auto_mode_handler_is_coroutine():

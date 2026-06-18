@@ -64,7 +64,7 @@ jupyter server extension disable elastic_kernel.serverextension
 
 ## エンドポイント
 
-いずれも `POST`。Jupyter Server のトークン認証を使うため、`Authorization: token <TOKEN>`
+Jupyter Server のトークン認証を使うため、`Authorization: token <TOKEN>`
 ヘッダを付ける（トークン認証なら XSRF ヘッダは不要）。
 
 | メソッド・パス | 説明 |
@@ -72,18 +72,24 @@ jupyter server extension disable elastic_kernel.serverextension
 | `POST /elastic_kernel/checkpoint` | 対象カーネルの現在の状態を保存する |
 | `POST /elastic_kernel/restore` | 対象カーネルをチェックポイントから復元する（**破壊的**: `user_ns` を上書きする） |
 | `POST /elastic_kernel/auto_mode` | 走行中カーネルの自動保存/自動復元モードを**実行時に切り替える**（[自動挙動の切り替え](#自動挙動の切り替え)を参照） |
+| `GET /elastic_kernel/auto_mode` | 走行中カーネルの**現在のモードを照会する**（read-only・何も変更しない）。`kernel_id` はクエリ引数で渡す |
 
 ### リクエストボディ（JSON）
+
+`POST` はボディに JSON を渡す。`GET /auto_mode` はボディを取らず、`kernel_id` を
+クエリ引数（`?kernel_id=<id>`）で渡す。
 
 | フィールド | 必須 | 説明 |
 | --- | --- | --- |
 | `kernel_id` | ○ | 対象カーネルの ID。`GET /api/kernels` や `GET /api/sessions` から取得する |
 | `timeout` | – | カーネルからの応答を待つ秒数（デフォルト 120） |
-| `auto_save` | – | （`auto_mode` のみ・bool）停止時の自動保存を ON/OFF する。省略時は据え置き |
-| `auto_restore` | – | （`auto_mode` のみ・bool）起動時の自動復元を ON/OFF する。省略時は据え置き |
+| `auto_save` | – | （`POST /auto_mode` のみ・bool）停止時の自動保存を ON/OFF する。省略時は据え置き |
+| `auto_restore` | – | （`POST /auto_mode` のみ・bool）起動時の自動復元を ON/OFF する。省略時は据え置き |
 
-`auto_mode` は `auto_save` / `auto_restore` の少なくとも一方が必須（両方とも省略すると `400`）。
-いずれも bool 以外を渡すと `400`。応答は更新後の現在値（`{"ok": true, "auto_save": ..., "auto_restore": ..., "changed": {...}}`）。
+`POST /auto_mode` は `auto_save` / `auto_restore` の少なくとも一方が必須（両方とも省略すると
+`400`）。いずれも bool 以外を渡すと `400`。`GET /auto_mode` はフラグを取らず現在値だけを返す。
+いずれの応答も `{"ok": true, "auto_save": ..., "auto_restore": ..., "changed": {...}}`
+（`GET` や変更が無かった場合は `changed` が空）。
 
 ### レスポンス
 
@@ -136,6 +142,10 @@ curl -s -X POST \
   -H "Authorization: token $TOK" -H "Content-Type: application/json" \
   -d '{"kernel_id":"<ID>","auto_save":false}' \
   "$BASE/elastic_kernel/auto_mode"
+
+# 5) 現在のモードを照会（read-only・何も変更しない）
+curl -s -H "Authorization: token $TOK" \
+  "$BASE/elastic_kernel/auto_mode?kernel_id=<ID>"
 ```
 
 > **注意（復元の破壊性）**: `restore` はカーネルの現在の名前空間を上書きし、必要なセルを

@@ -7,7 +7,8 @@
 カスタムメッセージ（``elastic_checkpoint_request`` / ``elastic_restore_request`` /
 ``elastic_set_auto_mode``）を送り、カーネル側（elastic_kernel.kernel）が返す reply を
 HTTP レスポンスとして中継する。``auto_mode`` は走行中のカーネルの自動保存/自動復元
-モードを実行時に切り替える（env 変数による起動時モードの実行時上書き）。
+モードを実行時に切り替える（``POST``）／現在値を照会する（``GET``、env 変数による
+起動時モードの実行時上書き）。
 
 注意:
 - このモジュールは Jupyter Server プロセス側でのみロードされる。カーネルプロセスからは
@@ -110,10 +111,12 @@ class RestoreHandler(_ElasticBaseHandler):
 
 
 class AutoModeHandler(_ElasticBaseHandler):
-    """走行中カーネルの自動保存/自動復元モードを実行時に切り替える。
+    """走行中カーネルの自動保存/自動復元モードを実行時に切り替える / 照会する。
 
-    body の auto_save / auto_restore（いずれも省略可・bool）を control メッセージの
-    ペイロードに載せて送る。少なくとも一方は指定が必要。
+    - ``POST`` … body の auto_save / auto_restore（いずれも省略可・bool）を control
+      メッセージのペイロードに載せて送り、フラグを差し替える。少なくとも一方は指定が必要。
+    - ``GET`` … 何も変更せず、現在のモード（auto_save / auto_restore）を返す（read-only）。
+      ``kernel_id`` はクエリ引数で渡す（例: ``?kernel_id=<id>``）。
     """
 
     @web.authenticated
@@ -131,6 +134,11 @@ class AutoModeHandler(_ElasticBaseHandler):
                 400, "at least one of auto_save / auto_restore is required"
             )
         await self._dispatch(*_AUTO_MODE, payload=payload)
+
+    @web.authenticated
+    async def get(self):
+        # 空ペイロードで送ると、カーネルは何も変更せず現在値（changed: {}）を返す。
+        await self._dispatch(*_AUTO_MODE, payload={})
 
 
 def _jupyter_server_extension_points():
@@ -150,5 +158,5 @@ def _load_jupyter_server_extension(server_app):
     server_app.log.info(
         "elastic_kernel server extension loaded: "
         "POST /elastic_kernel/checkpoint, POST /elastic_kernel/restore, "
-        "POST /elastic_kernel/auto_mode"
+        "GET|POST /elastic_kernel/auto_mode"
     )
