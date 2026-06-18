@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import logging
 import os
+import threading
 import time
 import types
 from os.path import dirname
@@ -53,6 +54,14 @@ class ElasticNotebook:
         # session, so we profile only once and reuse the result on subsequent checkpoints to
         # avoid adding measurement overhead to every checkpoint (issue #21).
         self.profiled_migration_speed_bps: Optional[float] = None
+
+        # Background prewarm of the migration-speed measurement. Profiling does real disk I/O
+        # (write + read of an ~8MB probe), so doing it inside the first checkpoint() puts it on
+        # the checkpoint's critical path. Instead the kernel kicks off prewarm_migration_speed()
+        # at startup; the measurement runs in this daemon thread while the kernel is otherwise
+        # idle, and checkpoint() just joins it (usually already finished) to read the result.
+        self._migration_speed_lock = threading.Lock()
+        self._migration_speed_thread: Optional[threading.Thread] = None
 
         # Dictionary of object fingerprints. For detecting modified references.
         self.fingerprint_dict: dict = {}
@@ -244,12 +253,60 @@ class ElasticNotebook:
                 f"record_event took {total_record_time:.3f}s - performance issue detected"
             )
 
+    def prewarm_migration_speed(self, dirname: str) -> None:
+        """Start measuring the migration speed in the background.
+
+        Profiling does real disk I/O, so running it lazily inside the first checkpoint() adds
+        that cost to the checkpoint's critical path. Calling this once at kernel startup moves
+        the measurement to a daemon thread that runs while the kernel is idle; by the time a
+        checkpoint is requested the result is cached and checkpoint() just reads it.
+
+        No-op if the speed was set manually, has already been profiled, or a prewarm is already
+        in flight. Safe to call multiple times.
+        """
+        if self.manual_migration_speed:
+            return
+        with self._migration_speed_lock:
+            if (
+                self.profiled_migration_speed_bps is not None
+                or self._migration_speed_thread is not None
+            ):
+                return
+            thread = threading.Thread(
+                target=self._profile_migration_speed_into_cache,
+                args=(dirname,),
+                name="elastic-migration-speed-prewarm",
+                daemon=True,
+            )
+            self._migration_speed_thread = thread
+            thread.start()
+        self.logger.info(f"Started background migration-speed profiling for {dirname}")
+
+    def _profile_migration_speed_into_cache(self, dirname: str) -> None:
+        """Worker body for prewarm_migration_speed(); profiles and caches the result."""
+        try:
+            speed = profile_migration_speed(dirname, alpha=self.alpha)
+        except Exception as e:
+            # Leave the cache empty; checkpoint() will fall back to a synchronous measurement.
+            self.logger.warning(f"Background migration-speed profiling failed: {e}")
+            return
+        with self._migration_speed_lock:
+            if self.profiled_migration_speed_bps is None:
+                self.profiled_migration_speed_bps = speed
+        self.logger.info(f"Prewarmed migration speed: {speed} bytes/s")
+
     def checkpoint(self, filename):
         self.logger.info("チェックポイントの保存を開始します")
 
         # Profile the migration speed to filename (only once per session; see __init__).
         if not self.manual_migration_speed:
+            # A background prewarm started at kernel startup usually has the result ready by
+            # now; join it so we use that measurement instead of redoing it on this path.
+            thread = self._migration_speed_thread
+            if thread is not None:
+                thread.join()
             if self.profiled_migration_speed_bps is None:
+                # No prewarm ran (or it failed); fall back to a synchronous measurement.
                 self.profiled_migration_speed_bps = profile_migration_speed(
                     dirname(filename), alpha=self.alpha
                 )
