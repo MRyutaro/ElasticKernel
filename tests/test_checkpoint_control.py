@@ -232,21 +232,22 @@ def test_load_registers_handlers():
     paths = [pattern for pattern, _handler in registered]
     assert any("checkpoint" in p for p in paths)
     assert any("restore" in p for p in paths)
-    assert any("auto_mode" in p for p in paths)
+    assert any("checkpoint_on_shutdown" in p for p in paths)
 
 
-def test_auto_mode_handler_supports_get_and_post():
+def test_checkpoint_on_shutdown_handler_supports_get_and_post():
     pytest.importorskip("jupyter_server")
-    from elastic_kernel.serverextension import AutoModeHandler
+    from elastic_kernel.serverextension import CheckpointOnShutdownHandler
 
     # POST（切り替え）と GET（read-only 照会）の両方をクラス自身で定義している。
     # （@web.authenticated でラップされるため iscoroutinefunction は使えない）
-    assert callable(AutoModeHandler.__dict__.get("post"))
-    assert callable(AutoModeHandler.__dict__.get("get"))
+    assert callable(CheckpointOnShutdownHandler.__dict__.get("post"))
+    assert callable(CheckpointOnShutdownHandler.__dict__.get("get"))
 
 
 # --------------------------------------------------------------------------- #
-# auto save/restore toggles (ELASTIC_KERNEL_AUTO_SAVE / ELASTIC_KERNEL_AUTO_RESTORE)
+# startup/shutdown auto toggles
+# (ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN / ELASTIC_KERNEL_RESTORE_ON_STARTUP)
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "value, expected",
@@ -267,22 +268,22 @@ def test_env_flag(value, expected):
     assert ElasticKernel._env_flag(value) is expected
 
 
-def _shutdown_stub(auto_save):
+def _shutdown_stub(checkpoint_on_shutdown):
     """do_shutdown のゲーティングだけを検証するための最小インスタンス。"""
     obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
-    obj.auto_save = auto_save
+    obj.checkpoint_on_shutdown = checkpoint_on_shutdown
     obj.logger = logging.getLogger("elastic-test")
     obj._save_checkpoint_calls = []
     obj._save_checkpoint = lambda: obj._save_checkpoint_calls.append(True)
     return obj
 
 
-def test_do_shutdown_saves_when_auto_save_enabled(monkeypatch):
+def test_do_shutdown_saves_when_enabled(monkeypatch):
     super_calls = []
     monkeypatch.setattr(
         IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
     )
-    obj = _shutdown_stub(auto_save=True)
+    obj = _shutdown_stub(checkpoint_on_shutdown=True)
 
     ElasticKernel.do_shutdown(obj, False)
 
@@ -290,12 +291,12 @@ def test_do_shutdown_saves_when_auto_save_enabled(monkeypatch):
     assert super_calls == [False]  # 通常のシャットダウンは継続する
 
 
-def test_do_shutdown_skips_save_when_auto_save_disabled(monkeypatch):
+def test_do_shutdown_skips_save_when_disabled(monkeypatch):
     super_calls = []
     monkeypatch.setattr(
         IPythonKernel, "do_shutdown", lambda self, restart: super_calls.append(restart)
     )
-    obj = _shutdown_stub(auto_save=False)
+    obj = _shutdown_stub(checkpoint_on_shutdown=False)
 
     ElasticKernel.do_shutdown(obj, True)
 
@@ -304,81 +305,65 @@ def test_do_shutdown_skips_save_when_auto_save_disabled(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# runtime auto-mode switch (elastic_set_auto_mode / POST /elastic_kernel/auto_mode)
+# runtime checkpoint_on_shutdown switch
+# (elastic_set_checkpoint_on_shutdown / POST /elastic_kernel/checkpoint_on_shutdown)
 # --------------------------------------------------------------------------- #
-def _auto_mode_stub(auto_save, auto_restore):
-    """_set_auto_mode のフラグ差し替えだけを検証するための最小インスタンス。"""
+def _checkpoint_on_shutdown_stub(checkpoint_on_shutdown):
+    """_set_checkpoint_on_shutdown のフラグ差し替えだけを検証する最小インスタンス。"""
     obj = ElasticKernel.__new__(ElasticKernel)  # __init__ を回避（ZMQ 不要）
-    obj.auto_save = auto_save
-    obj.auto_restore = auto_restore
+    obj.checkpoint_on_shutdown = checkpoint_on_shutdown
     obj.logger = logging.getLogger("elastic-test")
     return obj
 
 
-def test_set_auto_mode_updates_both():
-    obj = _auto_mode_stub(auto_save=True, auto_restore=True)
+def test_set_checkpoint_on_shutdown_updates():
+    obj = _checkpoint_on_shutdown_stub(checkpoint_on_shutdown=True)
 
-    result = obj._set_auto_mode(auto_save=False, auto_restore=False)
+    result = obj._set_checkpoint_on_shutdown(enabled=False)
 
-    assert obj.auto_save is False
-    assert obj.auto_restore is False
+    assert obj.checkpoint_on_shutdown is False
     assert result == {
         "ok": True,
-        "auto_save": False,
-        "auto_restore": False,
-        "changed": {"auto_save": False, "auto_restore": False},
+        "checkpoint_on_shutdown": False,
+        "changed": True,
     }
 
 
-def test_set_auto_mode_leaves_unspecified_unchanged():
-    obj = _auto_mode_stub(auto_save=True, auto_restore=True)
+def test_set_checkpoint_on_shutdown_normalizes_to_bool():
+    obj = _checkpoint_on_shutdown_stub(checkpoint_on_shutdown=False)
 
-    # auto_restore は None なので据え置き。auto_save だけ False へ。
-    result = obj._set_auto_mode(auto_save=False)
+    result = obj._set_checkpoint_on_shutdown(enabled=1)
 
-    assert obj.auto_save is False
-    assert obj.auto_restore is True  # 据え置き
-    assert result["changed"] == {"auto_save": False}
-    assert result["auto_restore"] is True
+    assert obj.checkpoint_on_shutdown is True
+    assert result["checkpoint_on_shutdown"] is True
+    assert result["changed"] is True
 
 
-def test_set_auto_mode_normalizes_to_bool():
-    obj = _auto_mode_stub(auto_save=False, auto_restore=False)
+def test_set_checkpoint_on_shutdown_read_only_leaves_unchanged():
+    # GET /checkpoint_on_shutdown 相当: enabled=None で呼ぶと何も変えず現在値を返す。
+    obj = _checkpoint_on_shutdown_stub(checkpoint_on_shutdown=True)
 
-    result = obj._set_auto_mode(auto_save=1, auto_restore=0)
+    result = obj._set_checkpoint_on_shutdown()
 
-    assert obj.auto_save is True
-    assert obj.auto_restore is False
-    assert result["auto_save"] is True
-    assert result["auto_restore"] is False
-
-
-def test_set_auto_mode_read_only_leaves_both_unchanged():
-    # GET /auto_mode 相当: フラグ無し（両方 None）で呼ぶと何も変更せず現在値を返す。
-    obj = _auto_mode_stub(auto_save=True, auto_restore=False)
-
-    result = obj._set_auto_mode()
-
-    assert obj.auto_save is True  # 据え置き
-    assert obj.auto_restore is False  # 据え置き
+    assert obj.checkpoint_on_shutdown is True  # 据え置き
     assert result == {
         "ok": True,
-        "auto_save": True,
-        "auto_restore": False,
-        "changed": {},
+        "checkpoint_on_shutdown": True,
+        "changed": False,
     }
 
 
-def test_set_auto_mode_handler_is_coroutine():
-    assert inspect.iscoroutinefunction(ElasticKernel._on_set_auto_mode_request)
+def test_set_checkpoint_on_shutdown_handler_is_coroutine():
+    assert inspect.iscoroutinefunction(
+        ElasticKernel._on_set_checkpoint_on_shutdown_request
+    )
 
 
-def test_set_auto_mode_handler_sends_reply():
+def test_set_checkpoint_on_shutdown_handler_sends_reply():
     sent = []
     # session は traitlets で検証されるため、real instance ではなく軽量スタブを使う。
     s = types.SimpleNamespace(
-        auto_save=True,
-        auto_restore=True,
+        checkpoint_on_shutdown=True,
         logger=logging.getLogger("elastic-test"),
         session=types.SimpleNamespace(
             send=lambda stream, msg_type, content, parent, ident: sent.append(
@@ -386,24 +371,28 @@ def test_set_auto_mode_handler_sends_reply():
             )
         ),
     )
-    s._set_auto_mode = lambda **kw: ElasticKernel._set_auto_mode(s, **kw)
+    s._set_checkpoint_on_shutdown = (
+        lambda **kw: ElasticKernel._set_checkpoint_on_shutdown(s, **kw)
+    )
 
     parent = {
         "header": {"msg_id": "req-1"},
-        "content": {"auto_save": False},
+        "content": {"enabled": False},
     }
 
-    asyncio.run(ElasticKernel._on_set_auto_mode_request(s, "stream", b"ident", parent))
+    asyncio.run(
+        ElasticKernel._on_set_checkpoint_on_shutdown_request(
+            s, "stream", b"ident", parent
+        )
+    )
 
     assert len(sent) == 1
     msg_type, content, sent_parent, ident = sent[0]
-    assert msg_type == "elastic_set_auto_mode_reply"
+    assert msg_type == "elastic_set_checkpoint_on_shutdown_reply"
     assert content["ok"] is True
-    assert content["auto_save"] is False
-    assert content["auto_restore"] is True  # 指定なしは据え置き
-    assert content["changed"] == {"auto_save": False}
+    assert content["checkpoint_on_shutdown"] is False
+    assert content["changed"] is True
     assert sent_parent is parent
     assert ident == b"ident"
     # フラグが実際に差し替わっている。
-    assert s.auto_save is False
-    assert s.auto_restore is True
+    assert s.checkpoint_on_shutdown is False

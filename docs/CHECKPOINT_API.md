@@ -5,12 +5,14 @@ ElasticKernel は通常、**カーネルの停止時にチェックポイント�
 できる API を提供する。
 
 > **自動保存 / 自動復元の無効化**: 終了時の自動保存・起動時の自動復元は、環境変数で
-> **それぞれ独立に**無効化でき（`ELASTIC_KERNEL_AUTO_SAVE` / `ELASTIC_KERNEL_AUTO_RESTORE`）、
-> 起動後は control / REST で実行時に上書きもできる。たとえば ElasticHub の zero-reload
-> マイグレーションでは、保存・復元とも明示 API のタイミングに寄せる。とくに復元は、
-> **カーネルをあらかじめ起動して待機**させておき**任意のタイミングで明示的に発火**することで、
-> カーネルの再起動時間をクリティカルパスから外す（起動時の自動復元には頼らない）。無効化しても
-> このページの明示 API は引き続き機能する。詳細は[自動挙動の切り替え](#自動挙動の切り替え)を参照。
+> **それぞれ独立に**無効化できる（`ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN` /
+> `ELASTIC_KERNEL_RESTORE_ON_STARTUP`）。さらに**終了時の自動保存**は起動後も control / REST
+> で実行時に切り替えられる（復元は起動時の一度きりのイベントなので実行時切り替えの対象外）。
+> たとえば ElasticHub の zero-reload マイグレーションでは、保存・復元とも明示 API のタイミング
+> に寄せる。とくに復元は、**カーネルをあらかじめ起動して待機**させておき**任意のタイミングで
+> 明示的に発火**することで、カーネルの再起動時間をクリティカルパスから外す（起動時の自動復元
+> には頼らない）。無効化してもこのページの明示 API は引き続き機能する。詳細は
+> [自動挙動の切り替え](#自動挙動の切り替え)を参照。
 
 - 発火は外部からの明示指示のみ（タイマーや自動発火ではない）。
 - ノートブックのエンドユーザーには**透過**（マジックコマンド不要・`user_ns` や `%who` を汚さない）。
@@ -71,25 +73,24 @@ Jupyter Server のトークン認証を使うため、`Authorization: token <TOK
 | --- | --- |
 | `POST /elastic_kernel/checkpoint` | 対象カーネルの現在の状態を保存する |
 | `POST /elastic_kernel/restore` | 対象カーネルをチェックポイントから復元する（**破壊的**: `user_ns` を上書きする） |
-| `POST /elastic_kernel/auto_mode` | 走行中カーネルの自動保存/自動復元モードを**実行時に切り替える**（[自動挙動の切り替え](#自動挙動の切り替え)を参照） |
-| `GET /elastic_kernel/auto_mode` | 走行中カーネルの**現在のモードを照会する**（read-only・何も変更しない）。`kernel_id` はクエリ引数で渡す |
+| `POST /elastic_kernel/checkpoint_on_shutdown` | 走行中カーネルの**終了時の自動保存を実行時に切り替える**（[自動挙動の切り替え](#自動挙動の切り替え)を参照） |
+| `GET /elastic_kernel/checkpoint_on_shutdown` | 走行中カーネルの**現在値を照会する**（read-only・何も変更しない）。`kernel_id` はクエリ引数で渡す |
 
 ### リクエストボディ（JSON）
 
-`POST` はボディに JSON を渡す。`GET /auto_mode` はボディを取らず、`kernel_id` を
+`POST` はボディに JSON を渡す。`GET /checkpoint_on_shutdown` はボディを取らず、`kernel_id` を
 クエリ引数（`?kernel_id=<id>`）で渡す。
 
 | フィールド | 必須 | 説明 |
 | --- | --- | --- |
 | `kernel_id` | ○ | 対象カーネルの ID。`GET /api/kernels` や `GET /api/sessions` から取得する |
 | `timeout` | – | カーネルからの応答を待つ秒数（デフォルト 120） |
-| `auto_save` | – | （`POST /auto_mode` のみ・bool）停止時の自動保存を ON/OFF する。省略時は据え置き |
-| `auto_restore` | – | （`POST /auto_mode` のみ・bool）起動時の自動復元を ON/OFF する。省略時は据え置き |
+| `enabled` | △ | （`POST /checkpoint_on_shutdown` のみ・bool・必須）終了時の自動保存を ON/OFF する |
 
-`POST /auto_mode` は `auto_save` / `auto_restore` の少なくとも一方が必須（両方とも省略すると
-`400`）。いずれも bool 以外を渡すと `400`。`GET /auto_mode` はフラグを取らず現在値だけを返す。
-いずれの応答も `{"ok": true, "auto_save": ..., "auto_restore": ..., "changed": {...}}`
-（`GET` や変更が無かった場合は `changed` が空）。
+`POST /checkpoint_on_shutdown` は `enabled`（bool）が必須（省略すると `400`、bool 以外も `400`）。
+`GET /checkpoint_on_shutdown` は `enabled` を取らず現在値だけを返す。いずれの応答も
+`{"ok": true, "checkpoint_on_shutdown": ..., "changed": ...}`（`changed` は実際に値を変えたか
+の bool。`GET` や同値での更新でなく「書き込みを行ったか」を表すので、`GET` では常に `false`）。
 
 ### レスポンス
 
@@ -137,15 +138,15 @@ curl -s -X POST \
   -d '{"kernel_id":"<ID>"}' \
   "$BASE/elastic_kernel/restore"
 
-# 4) 自動保存だけ実行時に OFF（移行対象に決めた瞬間にその pod だけ手動へ倒す）
+# 4) 終了時の自動保存を実行時に OFF（移行対象に決めた瞬間にその pod だけ手動へ倒す）
 curl -s -X POST \
   -H "Authorization: token $TOK" -H "Content-Type: application/json" \
-  -d '{"kernel_id":"<ID>","auto_save":false}' \
-  "$BASE/elastic_kernel/auto_mode"
+  -d '{"kernel_id":"<ID>","enabled":false}' \
+  "$BASE/elastic_kernel/checkpoint_on_shutdown"
 
-# 5) 現在のモードを照会（read-only・何も変更しない）
+# 5) 現在値を照会（read-only・何も変更しない）
 curl -s -H "Authorization: token $TOK" \
-  "$BASE/elastic_kernel/auto_mode?kernel_id=<ID>"
+  "$BASE/elastic_kernel/checkpoint_on_shutdown?kernel_id=<ID>"
 ```
 
 > **注意（復元の破壊性）**: `restore` はカーネルの現在の名前空間を上書きし、必要なセルを
@@ -159,43 +160,46 @@ ElasticKernel はデフォルトで、**起動時にチェックポイントを�
 ほとんどのユーザーはこのままでよい。
 
 一方、外部オーケストレーターが保存/復元のタイミングを制御するカーネルでは、自動挙動の片方
-（または両方）が邪魔になる。**保存と復元は独立に**切り替えられる。設定は2段構えで、
-**環境変数が「起動時の初期モード」を決め**、**control メッセージ / REST が「実行時の上書き」**
-をする。
+（または両方）が邪魔になる。**保存と復元は独立に**切り替えられる。
+
+- **起動時の初期モードは環境変数で決める**（保存・復元の両方）。
+- **終了時の自動保存はさらに control メッセージ / REST で実行時に上書きできる**。一方、起動時の
+  自動復元は**起動時の一度きりのイベント**なので、起動後に切り替えても効果がない。そのため
+  実行時の上書き対象は保存側のみ（復元は env と起動時ログでのみ制御/確認する）。
 
 ### 1. 起動時の初期モード（環境変数）
 
 | 環境変数 | 既定 | 効果 |
 | --- | --- | --- |
-| `ELASTIC_KERNEL_AUTO_SAVE` | 有効 | `0` / `false` / `no` / `off`（大文字小文字・前後空白は無視）で、**停止時（`do_shutdown`）の自動保存**を無効化する。 |
-| `ELASTIC_KERNEL_AUTO_RESTORE` | 有効 | 同上の値で、**起動時（`__init__`）の自動復元**を無効化する。 |
+| `ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN` | 有効 | `0` / `false` / `no` / `off`（大文字小文字・前後空白は無視）で、**停止時（`do_shutdown`）の自動保存**を無効化する。 |
+| `ELASTIC_KERNEL_RESTORE_ON_STARTUP` | 有効 | 同上の値で、**起動時（`__init__`）の自動復元**を無効化する。 |
 
 未設定または上記以外の値なら、それぞれ従来どおり有効。無効化しても、このページで説明している
 **明示的な保存/復元（control メッセージ・REST API）は引き続き機能する**。
 
-両フラグは**カーネルの `__init__`（＝起動時）に一度だけ評価**され、`self.auto_save` /
-`self.auto_restore` の初期値になる。停止時の `do_shutdown` はこの値を参照する。
+両フラグは**カーネルの `__init__`（＝起動時）に一度だけ評価**され、`self.checkpoint_on_shutdown`
+/ `self.restore_on_startup` の初期値になる。停止時の `do_shutdown` は前者を参照する。
 
-### 2. 実行時の上書き（control メッセージ / REST）
+### 2. 実行時の上書き（control メッセージ / REST）— 終了時の自動保存のみ
 
 起動後に判断を変えたい場合は、走行中のカーネルへ control メッセージ
-`elastic_set_auto_mode`（REST なら `POST /elastic_kernel/auto_mode`）を送って
-`self.auto_save` / `self.auto_restore` を差し替えられる。`auto_save` / `auto_restore` の
-うち**送ったものだけ**が更新され、省略したフラグは据え置き。応答は更新後の現在値を返す。
+`elastic_set_checkpoint_on_shutdown`（REST なら `POST /elastic_kernel/checkpoint_on_shutdown`）
+を送って `self.checkpoint_on_shutdown` を差し替えられる。`enabled`（bool）を送ると更新され、
+応答は更新後の現在値を返す（`enabled` を省略すると現在値を返すだけの read-only 照会）。
 
 フラグの読み書きだけで `user_ns` には触れないため、**セル実行中でも割り込んで切り替えられる**
 （保存/復元と違ってメインループの空き待ちが不要）。
 
 ```python
 # control チャネル直送（同一ホスト）
-msg = client.session.msg("elastic_set_auto_mode", {"auto_save": False})
+msg = client.session.msg("elastic_set_checkpoint_on_shutdown", {"enabled": False})
 client.control_channel.send(msg)
 print(client.get_control_msg(timeout=10)["content"])
-# {"ok": True, "auto_save": False, "auto_restore": True, "changed": {"auto_save": False}}
+# {"ok": True, "checkpoint_on_shutdown": False, "changed": True}
 ```
 
-> **オーケストレーターでの使い方**: 全 pod を `auto`（既定）のまま起動しておき、**移行対象に
-> 決めた瞬間にその pod だけ** `auto_save=false` へ倒してから保存→旧 pod 削除、という流れに
+> **オーケストレーターでの使い方**: 全 pod を auto（既定）のまま起動しておき、**移行対象に
+> 決めた瞬間にその pod だけ** `enabled=false` へ倒してから保存→旧 pod 削除、という流れに
 > できる。env を起動時に固定する方式と違い、「移行する pod だけ手動」を後から選べるので、
 > culling 等の通常停止で保存されなくなる副作用（下記）を移行対象以外には及ぼさずに済む。
 
@@ -212,7 +216,8 @@ zero-reload 移行では、旧カーネルを**殺さずに**明示 API（`POST 
   明示復元**することで、再起動時間をクリティカルパスから外す。→ 起動時の自動復元を切る
 
 つまり移行対象のカーネルは**自動保存・自動復元をともに切り、保存も復元も明示 API のタイミングに
-寄せる**。どのフラグで起動するか（env）と起動後の実行時上書き（control / REST）は次のとおり。
+寄せる**。起動時のフラグ（env）は両方を `0` にし、起動後に「移行対象に決めた瞬間」へ寄せたい場合は
+終了時の自動保存だけ前項の control / REST で OFF にする（復元側は起動時に決まるので env で固定する）。
 
 ### 環境変数の渡し方
 
@@ -229,12 +234,12 @@ zero-reload 移行では、旧カーネルを**殺さずに**明示 API（`POST 
 ```python
 import os
 
-env = dict(os.environ, ELASTIC_KERNEL_AUTO_SAVE="0")
+env = dict(os.environ, ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN="0")
 # kernel_manager.start_kernel(env=env) など、起動 API に env として渡す
 ```
 
 どのモードで起動したかはカーネルのログ（`.elastic_kernel/<hash>/ElasticKernel.log`）の
-`Auto checkpoint: save=on|off, restore=on|off` で確認できる。
+`Auto checkpoint: on_shutdown=on|off, on_startup=on|off` で確認できる。
 
 > **注意（自動保存 OFF の副作用）**: 自動保存を切ると、マイグレーション以外の通常停止
 > （culling・ログアウト等）でも保存されなくなる。その場合は停止前にオーケストレーターが
@@ -256,7 +261,7 @@ client.load_connection_file("<jupyter runtime dir>/kernel-<kernel_id>.json")
 client.start_channels()
 
 msg = client.session.msg("elastic_checkpoint_request", {})  # 復元は elastic_restore_request
-# モード切り替えなら elastic_set_auto_mode（content に auto_save/auto_restore を載せる）
+# 終了時の自動保存の切り替えなら elastic_set_checkpoint_on_shutdown（content に enabled を載せる）
 client.control_channel.send(msg)
 print(client.get_control_msg(timeout=120)["content"])       # {"ok": True, ...}
 

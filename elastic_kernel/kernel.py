@@ -88,24 +88,30 @@ class ElasticKernel(IPythonKernel):
         # 一方、復元は新 pod の __init__ 自動ロード（elastic_id_shim の同一 kernel_id 起動）に
         # 依存しているため有効のまま使いたい。save と restore で必要な向きが逆なので、別々の
         # 環境変数で制御する。どちらも未設定ならデフォルト ON（通常ユーザーは従来どおり）。
-        self.auto_save = self._env_flag(os.environ.get("ELASTIC_KERNEL_AUTO_SAVE"))
-        self.auto_restore = self._env_flag(
-            os.environ.get("ELASTIC_KERNEL_AUTO_RESTORE")
+        # フラグ名は「いつ起きるか」を表す: checkpoint_on_shutdown は終了時(do_shutdown)の
+        # 保存、restore_on_startup は起動時(__init__)の復元。
+        self.checkpoint_on_shutdown = self._env_flag(
+            os.environ.get("ELASTIC_KERNEL_CHECKPOINT_ON_SHUTDOWN")
+        )
+        self.restore_on_startup = self._env_flag(
+            os.environ.get("ELASTIC_KERNEL_RESTORE_ON_STARTUP")
         )
         self.logger.info(
-            f"Auto checkpoint: save={'on' if self.auto_save else 'off'}, "
-            f"restore={'on' if self.auto_restore else 'off'}"
+            "Auto checkpoint: "
+            f"on_shutdown={'on' if self.checkpoint_on_shutdown else 'off'}, "
+            f"on_startup={'on' if self.restore_on_startup else 'off'}"
         )
 
         # 起動時にチェックポイントファイルがあれば復元する。
         # 復元ロジックは _restore_checkpoint() に共通化されており、外部オーケストレーター
         # からの control メッセージ経由でも同じ処理を再利用する。
         # 自動復元が無効でも、control メッセージ経由の明示的な restore は引き続き機能する。
-        if self.auto_restore:
+        if self.restore_on_startup:
             self._restore_checkpoint()
         else:
             self.logger.info(
-                "Skipping startup auto-restore (ELASTIC_KERNEL_AUTO_RESTORE disabled)."
+                "Skipping startup auto-restore "
+                "(ELASTIC_KERNEL_RESTORE_ON_STARTUP disabled)."
             )
 
         # 外部オーケストレーターから任意タイミングで保存/復元を発火できるよう、control
@@ -116,12 +122,16 @@ class ElasticKernel(IPythonKernel):
             self._on_checkpoint_request
         )
         self.control_handlers["elastic_restore_request"] = self._on_restore_request
-        # 実行時に自動保存/自動復元モードを切り替える control メッセージ。env 変数が「起動時
-        # の初期モード」を決めるのに対し、こちらは走行中のカーネルに対して self.auto_save /
-        # self.auto_restore を差し替える。ElasticHub では「移行対象に決めた瞬間にその pod だけ
-        # 手動へ倒す」用途。全 pod を auto のまま起動でき、env の副作用（culling 等でも保存
-        # されない）も避けられる。
-        self.control_handlers["elastic_set_auto_mode"] = self._on_set_auto_mode_request
+        # 実行時に「終了時の自動保存(checkpoint_on_shutdown)」を切り替える control メッセージ。
+        # env 変数が「起動時の初期モード」を決めるのに対し、こちらは走行中のカーネルに対して
+        # self.checkpoint_on_shutdown を差し替える。ElasticHub では「移行対象に決めた瞬間に
+        # その pod だけ手動へ倒す」用途。全 pod を auto のまま起動でき、env の副作用（culling 等
+        # でも保存されない）も避けられる。
+        # なお復元は起動時(__init__)の一度きりのイベントなので、実行時に切り替えても効果がない。
+        # そのため実行時の切り替え対象は保存側のみ（復元は env と起動時ログでのみ制御/確認する）。
+        self.control_handlers["elastic_set_checkpoint_on_shutdown"] = (
+            self._on_set_checkpoint_on_shutdown_request
+        )
 
     def __resolve_path_without_jpy_session_name(self):
         """
@@ -556,55 +566,49 @@ class ElasticKernel(IPythonKernel):
             ident=idents,
         )
 
-    def _set_auto_mode(self, auto_save=None, auto_restore=None):
+    def _set_checkpoint_on_shutdown(self, enabled=None):
         """
-        実行時に自動保存(self.auto_save)/自動復元(self.auto_restore)フラグを上書きする。
+        実行時に「終了時の自動保存(self.checkpoint_on_shutdown)」フラグを上書き / 照会する。
 
         env 変数は「起動時の初期モード」を決めるだけで、起動後は変えられない。このメソッドは
-        走行中のカーネルに対してフラグを差し替えるためのもの。auto_save / auto_restore が
-        None でないものだけを bool に正規化して反映し、None のフラグは現状維持する。
+        走行中のカーネルに対してフラグを差し替えるためのもの。enabled が None なら何も変えず
+        現在値を返すだけ（GET 相当の read-only 照会）。None でなければ bool に正規化して反映する。
 
         フラグの読み書きだけで user_ns には触れないため、セル実行と排他にする必要はない
         （_run_on_main_loop を経由しない）。実行中でも割り込んで切り替えられる。結果（更新後の
-        現在値と、実際に変更した項目）を dict で返す。
+        現在値と、実際に変更したか）を dict で返す。
         """
-        changed = {}
-        if auto_save is not None:
-            self.auto_save = bool(auto_save)
-            changed["auto_save"] = self.auto_save
-        if auto_restore is not None:
-            self.auto_restore = bool(auto_restore)
-            changed["auto_restore"] = self.auto_restore
+        changed = enabled is not None
+        if changed:
+            self.checkpoint_on_shutdown = bool(enabled)
         self.logger.info(
-            f"Auto mode updated: save={'on' if self.auto_save else 'off'}, "
-            f"restore={'on' if self.auto_restore else 'off'} "
-            f"(changed: {changed or 'none'})"
+            "checkpoint_on_shutdown "
+            f"{'updated to' if changed else 'queried'}: "
+            f"{'on' if self.checkpoint_on_shutdown else 'off'}"
         )
         return {
             "ok": True,
-            "auto_save": self.auto_save,
-            "auto_restore": self.auto_restore,
+            "checkpoint_on_shutdown": self.checkpoint_on_shutdown,
             "changed": changed,
         }
 
-    async def _on_set_auto_mode_request(self, stream, idents, parent):
-        """control チャネルの elastic_set_auto_mode ハンドラ。
+    async def _on_set_checkpoint_on_shutdown_request(self, stream, idents, parent):
+        """control チャネルの elastic_set_checkpoint_on_shutdown ハンドラ。
 
-        リクエスト content の auto_save / auto_restore（いずれも省略可・bool）を読み、
-        _set_auto_mode でフラグを差し替えて現在値を返す。
+        リクエスト content の enabled（省略可・bool）を読み、_set_checkpoint_on_shutdown で
+        フラグを差し替える（省略時は現在値を返すだけの read-only 照会）。
         """
-        self.logger.info("Received elastic_set_auto_mode (control channel)")
+        self.logger.info(
+            "Received elastic_set_checkpoint_on_shutdown (control channel)"
+        )
         content = parent.get("content", {}) if isinstance(parent, dict) else {}
         try:
-            result = self._set_auto_mode(
-                auto_save=content.get("auto_save"),
-                auto_restore=content.get("auto_restore"),
-            )
+            result = self._set_checkpoint_on_shutdown(enabled=content.get("enabled"))
         except Exception as e:
             result = {"ok": False, "reason": "exception", "error": str(e)}
         self.session.send(
             stream,
-            "elastic_set_auto_mode_reply",
+            "elastic_set_checkpoint_on_shutdown_reply",
             content=result,
             parent=parent,
             ident=idents,
@@ -618,11 +622,11 @@ class ElasticKernel(IPythonKernel):
         # いずれの場合も通常のシャットダウンを継続する。(D-13)
         # 自動保存が無効なら終了時の保存はスキップする（明示 API / control メッセージで保存する
         # 運用向け。明示保存は無効化後も引き続き機能する）。
-        if self.auto_save:
+        if self.checkpoint_on_shutdown:
             self._save_checkpoint()
         else:
             self.logger.info(
-                "Skipping shutdown auto-save (ELASTIC_KERNEL_AUTO_SAVE disabled)."
+                "Skipping shutdown auto-save (checkpoint_on_shutdown disabled)."
             )
         return super().do_shutdown(restart)
 
