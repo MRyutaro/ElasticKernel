@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/MRyutaro/ElasticKernel/compare/v0.2.0...v0.2.1) (2026-06-18)
+
+
+### Performance Improvements
+
+* prewarm migration-speed profiling off the checkpoint critical path ([6898811](https://github.com/MRyutaro/ElasticKernel/commit/68988115f6e60af9b5db508e26822dfaccab60ec))
+* prewarm migration-speed profiling off the checkpoint critical path ([6a60f3d](https://github.com/MRyutaro/ElasticKernel/commit/6a60f3db421c8e749b3adeb86c9fadfe3bd61bdd))
+
+
+### Documentation
+
+* add GPU support (Issue [#75](https://github.com/MRyutaro/ElasticKernel/issues/75)) prior-art survey ([4fe8875](https://github.com/MRyutaro/ElasticKernel/commit/4fe88755d428fe974e8dd898ad7e1dde4d8e88d1))
+
 ## [0.2.0](https://github.com/MRyutaro/ElasticKernel/compare/v0.1.2...v0.2.0) (2026-06-18)
 
 
