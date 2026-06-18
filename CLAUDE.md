@@ -204,6 +204,7 @@ uv run pytest
 
 - PR を作成するとき、対応する Issue がある場合は PR 本文に `close #<issue番号>` を記載して、PR のマージ時に Issue が自動で close されるようにする（複数 Issue がある場合はそれぞれに `close #<issue番号>` を書く）。
 - `close` のほか `closes` / `closed` / `fix` / `fixes` / `fixed` / `resolve` / `resolves` / `resolved` も同じく自動 close キーワードとして使える。
+- PR 本文に「変更ファイル」の一覧は書かない。GitHub の「Files changed」タブで十分なので、本文は背景・課題・変更内容・検証などに集中させる。
 
 ## 開発時のテスト
 
