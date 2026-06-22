@@ -75,11 +75,6 @@ class ElasticKernel(IPythonKernel):
                 log_file_dir=self.log_file_dir,
             )
             self.logger.info("ElasticNotebook successfully loaded.")
-            # 起動直後にディスクの計測(migration speed profiling)をバックグラウンドで先回り実行する。
-            # 計測は実ディスク I/O を伴うため、最初の checkpoint() 内で同期実行すると保存の
-            # クリティカルパスに乗ってしまう。カーネルがアイドルな起動時にスレッドで済ませておけば、
-            # 明示保存時には結果がキャッシュ済みでパスから外れる。
-            self.elastic_notebook.prewarm_migration_speed(self.log_file_dir)
         except Exception as e:
             self.logger.error(f"Error loading ElasticNotebook: {e}")
             self.logger.error(

@@ -55,11 +55,11 @@ class ElasticNotebook:
         # avoid adding measurement overhead to every checkpoint (issue #21).
         self.profiled_migration_speed_bps: Optional[float] = None
 
-        # Background prewarm of the migration-speed measurement. Profiling does real disk I/O
-        # (write + read of an ~8MB probe), so doing it inside the first checkpoint() puts it on
-        # the checkpoint's critical path. Instead the kernel kicks off prewarm_migration_speed()
-        # at startup; the measurement runs in this daemon thread while the kernel is otherwise
-        # idle, and checkpoint() just joins it (usually already finished) to read the result.
+        # Background migration-speed measurement thread (issue #78). Profiling does real
+        # disk I/O (write + read of an ~8MB probe). To avoid NFS I/O contention with
+        # checkpoint/restore and inaccurate measurements during startup congestion,
+        # prewarm_migration_speed() is called after load_checkpoint() completes — the
+        # system is idle and the measurement reflects steady-state throughput.
         self._migration_speed_lock = threading.Lock()
         self._migration_speed_thread: Optional[threading.Thread] = None
 
@@ -381,3 +381,7 @@ class ElasticNotebook:
         self.update_migration_lists(vss_to_migrate, vss_to_recompute)
         self.logger.info(self)
         self.logger.info("チェックポイントの読み込みを終了しました")
+
+        # restore 完了後に migration speed をバックグラウンド計測する (issue #78)。
+        # NFS I/O が checkpoint/restore と競合せず、起動時の混雑も収まった定常状態で測れる。
+        self.prewarm_migration_speed(os.path.dirname(filename))
