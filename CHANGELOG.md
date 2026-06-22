@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/MRyutaro/ElasticKernel/compare/v0.2.1...v0.2.2) (2026-06-22)
+
+
+### Bug Fixes
+
+* move prewarm_migration_speed from __init__ to after restore (issue [#78](https://github.com/MRyutaro/ElasticKernel/issues/78)) ([6aad437](https://github.com/MRyutaro/ElasticKernel/commit/6aad437c889984190518ec4db49bde008b063ff8))
+* move prewarm_migration_speed to after restore ([#78](https://github.com/MRyutaro/ElasticKernel/issues/78)) ([e185b3c](https://github.com/MRyutaro/ElasticKernel/commit/e185b3c0d61c3875a99ee6e850eaab1bc64c1874))
+
 ## [0.2.1](https://github.com/MRyutaro/ElasticKernel/compare/v0.2.0...v0.2.1) (2026-06-18)
 
 
