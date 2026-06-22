@@ -381,7 +381,3 @@ class ElasticNotebook:
         self.update_migration_lists(vss_to_migrate, vss_to_recompute)
         self.logger.info(self)
         self.logger.info("チェックポイントの読み込みを終了しました")
-
-        # restore 完了後に migration speed をバックグラウンド計測する (issue #78)。
-        # NFS I/O が checkpoint/restore と競合せず、起動時の混雑も収まった定常状態で測れる。
-        self.prewarm_migration_speed(os.path.dirname(filename))

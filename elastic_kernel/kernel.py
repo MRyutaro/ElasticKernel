@@ -114,6 +114,13 @@ class ElasticKernel(IPythonKernel):
                 "(ELASTIC_KERNEL_RESTORE_ON_STARTUP disabled)."
             )
 
+        # migration speed のバックグラウンド計測 (issue #78)。
+        # restore ON: restore 完了後に計測する。起動時の混雑が収まった定常状態で
+        #   NFS スループットを測れ、checkpoint/restore との I/O 競合も起きない。
+        # restore OFF: 起動直後に計測する。restore が走らないため競合の懸念がない。
+        if self.elastic_notebook is not None:
+            self.elastic_notebook.prewarm_migration_speed(self.log_file_dir)
+
         # 外部オーケストレーターから任意タイミングで保存/復元を発火できるよう、control
         # チャネルにカスタムメッセージハンドラを登録する。control チャネルはセル実行の
         # shell キューとは別系統なので、実行中でも割り込んで処理でき、user_ns にコードを
