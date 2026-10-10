@@ -44,8 +44,7 @@ def test_falls_back_to_dill_and_leaves_no_partial_bytes(monkeypatch):
 def test_main_classes_and_lambdas_restore_in_a_fresh_process(tmp_path):
     """The standard pickle stores __main__ classes by name and the load then fails."""
     out = tmp_path / "group.pkl"
-    writer = textwrap.dedent(
-        f"""
+    writer = textwrap.dedent(f"""
         from elastic_notebook.core.io import serializer
 
         class Point:
@@ -55,15 +54,12 @@ def test_main_classes_and_lambdas_restore_in_a_fresh_process(tmp_path):
         offset = 10
         with open({str(out)!r}, "wb") as f:
             serializer.dump([Point(3), lambda v: v + offset], f)
-        """
-    )
+        """)
     subprocess.run([sys.executable, "-c", writer], check=True)
-    reader = textwrap.dedent(
-        f"""
+    reader = textwrap.dedent(f"""
         import dill
         with open({str(out)!r}, "rb") as f:
             point, fn = dill.load(f)
         assert point.x == 3 and fn(1) == 11
-        """
-    )
+        """)
     subprocess.run([sys.executable, "-c", reader], check=True)

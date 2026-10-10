@@ -1,4 +1,5 @@
 """Process 2: a fresh __main__ with no Point / double. Load what restore_write.py dumped."""
+
 import json
 import pathlib
 import sys

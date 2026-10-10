@@ -1,4 +1,5 @@
 """Workloads: one variable group each, built to a rough target size."""
+
 import numpy as np
 import pandas as pd
 

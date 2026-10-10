@@ -1,15 +1,15 @@
 """Time dumps/loads of each serializer on each workload; write results.json."""
+
 import dataclasses
 import json
 import statistics
 import sys
 import time
 
-import dill
 import cloudpickle
+import dill
 import numpy as np
 import pandas as pd
-
 from serializers import CANDIDATES
 from workloads import WORKLOADS
 
@@ -60,14 +60,30 @@ for label, build, args in WORKLOADS:
             d_times.append(dt)
             l_times.append(lt)
             size = len(data)
-        row = dict(workload=label, serializer=name, size_mb=(size or 0) / 1e6,
-                   dump_s=statistics.median(d_times) if d_times else None,
-                   load_s=statistics.median(l_times) if l_times else None, error=err)
+        row = dict(
+            workload=label,
+            serializer=name,
+            size_mb=(size or 0) / 1e6,
+            dump_s=statistics.median(d_times) if d_times else None,
+            load_s=statistics.median(l_times) if l_times else None,
+            error=err,
+        )
         results.append(row)
-        print(f"{label:32s} {name:40s} dump={row['dump_s']} load={row['load_s']} size={row['size_mb']:.1f}MB {err or ''}",
-              flush=True)
+        print(
+            f"{label:32s} {name:40s} dump={row['dump_s']} load={row['load_s']} size={row['size_mb']:.1f}MB {err or ''}",
+            flush=True,
+        )
     del obj
 
-json.dump(dict(python=sys.version, dill=dill.__version__, cloudpickle=cloudpickle.__version__,
-               numpy=np.__version__, pandas=pd.__version__, results=results),
-          open("results.json", "w"), indent=1)
+json.dump(
+    dict(
+        python=sys.version,
+        dill=dill.__version__,
+        cloudpickle=cloudpickle.__version__,
+        numpy=np.__version__,
+        pandas=pd.__version__,
+        results=results,
+    ),
+    open("results.json", "w"),
+    indent=1,
+)

@@ -1,4 +1,5 @@
 """Draw dump_time.png, load_time.png and restore.png from results.json / restore_results.json."""
+
 import json
 
 import matplotlib
@@ -27,11 +28,27 @@ def bars(key, title, fname):
         xs = np.arange(len(workloads)) + i * width
         vals = [get(w, s, key) for w in workloads]
         ys = [v if v is not None else np.nan for v in vals]
-        ax.bar(xs, ys, width, label=s, color=colors[i],
-               edgecolor="black" if s == CHOSEN else "none", linewidth=1.5)
+        ax.bar(
+            xs,
+            ys,
+            width,
+            label=s,
+            color=colors[i],
+            edgecolor="black" if s == CHOSEN else "none",
+            linewidth=1.5,
+        )
         for x, v in zip(xs, vals):
             if v is None:
-                ax.text(x, 0.02, "fail", transform=ax.get_xaxis_transform(), rotation=90, ha="center", va="bottom", fontsize=7)
+                ax.text(
+                    x,
+                    0.02,
+                    "fail",
+                    transform=ax.get_xaxis_transform(),
+                    rotation=90,
+                    ha="center",
+                    va="bottom",
+                    fontsize=7,
+                )
     ax.set_yscale("log")
     ax.set_ylabel("seconds (log scale, lower is faster)")
     ax.set_xticks(np.arange(len(workloads)) + 0.4 - width / 2)
@@ -44,7 +61,11 @@ def bars(key, title, fname):
 
 
 bars("dump_s", "Serialize time per variable group (median of 3)", "dump_time.png")
-bars("load_s", "Load time per variable group (median of 3, always dill.loads)", "load_time.png")
+bars(
+    "load_s",
+    "Load time per variable group (median of 3, always dill.loads)",
+    "load_time.png",
+)
 
 # speedup of the chosen serializer over current dill
 fig, ax = plt.subplots(figsize=(9, 4))
@@ -68,11 +89,20 @@ ax.imshow(grid, cmap="RdYlGn", vmin=-0.3, vmax=1.3, aspect="auto")
 for i, n in enumerate(names):
     for j, o in enumerate(objs):
         v = rr[n][o]
-        ax.text(j, i, "OK" if v == "ok" else v.replace(" (", "\n("), ha="center", va="center", fontsize=8)
+        ax.text(
+            j,
+            i,
+            "OK" if v == "ok" else v.replace(" (", "\n("),
+            ha="center",
+            va="center",
+            fontsize=8,
+        )
 ax.set_xticks(range(len(objs)))
 ax.set_xticklabels(objs)
 ax.set_yticks(range(len(names)))
 ax.set_yticklabels(names)
-ax.set_title("Dump in one process, load in a fresh one (names defined in __main__ are gone)")
+ax.set_title(
+    "Dump in one process, load in a fresh one (names defined in __main__ are gone)"
+)
 fig.tight_layout()
 fig.savefig("restore.png", dpi=130)
