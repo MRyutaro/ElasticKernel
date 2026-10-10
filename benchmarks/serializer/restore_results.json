@@ -1,0 +1,50 @@
+{
+ "dill (current)": {
+  "class instances": "ok",
+  "function": "ok",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ },
+ "dill (byref=True)": {
+  "class instances": "load failed (AttributeError)",
+  "function": "ok",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ },
+ "pickle (C)": {
+  "class instances": "load failed (AttributeError)",
+  "function": "load failed (AttributeError)",
+  "lambda with closure": "dump failed",
+  "plain data": "ok"
+ },
+ "cloudpickle": {
+  "class instances": "ok",
+  "function": "ok",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ },
+ "pickle, fallback on error": {
+  "class instances": "load failed (AttributeError)",
+  "function": "load failed (AttributeError)",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ },
+ "pickle + __main__ scan -> dill": {
+  "class instances": "ok",
+  "function": "ok",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ },
+ "pickle + __main__ scan -> cloudpickle": {
+  "class instances": "ok",
+  "function": "ok",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ },
+ "cloudpickle, fallback to dill": {
+  "class instances": "ok",
+  "function": "ok",
+  "lambda with closure": "ok",
+  "plain data": "ok"
+ }
+}
