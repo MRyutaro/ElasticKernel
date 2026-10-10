@@ -6,11 +6,11 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-import dill
 from ipykernel.zmqshell import ZMQInteractiveShell
 
 from elastic_notebook.core.common.checkpoint_file import CheckpointFile
 from elastic_notebook.core.graph.graph import DependencyGraph
+from elastic_notebook.core.io import serializer
 
 logger = logging.getLogger("ElasticNotebookLogger")
 
@@ -109,7 +109,7 @@ def migrate(
         # メタデータの保存
         logger.info("Saving metadata...")
         metadata_start = time.time()
-        dill.dump(metadata, output_file)
+        serializer.dump(metadata, output_file)
         metadata_time = time.time() - metadata_start
         logger.info(f"Metadata saved in {metadata_time:.3f} seconds")
 
@@ -138,9 +138,9 @@ def migrate(
                         "    Consider using NumPy arrays or other more efficient data structures for large datasets."
                     )
 
-            # dill.dumpの実行時間を計測
+            # serializer.dumpの実行時間を計測
             dump_start = time.time()
-            logger.debug(f"    Starting dill.dump for {len(obj_list)} objects...")
+            logger.debug(f"    Starting serializer.dump for {len(obj_list)} objects...")
 
             # メモリ使用量をログ出力（可能な場合）
             try:
@@ -169,7 +169,7 @@ def migrate(
                     "    If the kernel becomes unresponsive, Jupyter may terminate it."
                 )
 
-            dill.dump(obj_list, output_file)
+            serializer.dump(obj_list, output_file)
             dump_time = time.time() - dump_start
 
             group_time = time.time() - group_start
