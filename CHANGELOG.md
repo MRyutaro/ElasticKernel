@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/MRyutaro/ElasticKernel/compare/v0.2.2...v0.2.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* **io:** serialize checkpoints with cloudpickle, falling back to dill ([#83](https://github.com/MRyutaro/ElasticKernel/issues/83)) ([3ce4084](https://github.com/MRyutaro/ElasticKernel/commit/3ce4084199500a0c96f2e81aa9feae8548660b27))
+
 ## [0.2.2](https://github.com/MRyutaro/ElasticKernel/compare/v0.2.1...v0.2.2) (2026-06-22)
 
 
