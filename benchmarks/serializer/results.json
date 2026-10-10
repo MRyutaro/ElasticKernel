@@ -1,0 +1,457 @@
+{
+ "python": "3.11.15 (main, Jun  2 2026, 22:26:03) [Clang 22.1.3 ]",
+ "dill": "0.4.1",
+ "cloudpickle": "3.1.2",
+ "numpy": "2.4.6",
+ "pandas": "3.0.6",
+ "results": [
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "dill (current)",
+   "size_mb": 104.857797,
+   "dump_s": 0.1250086911022663,
+   "load_s": 0.06108737550675869,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "dill (byref=True)",
+   "size_mb": 104.857797,
+   "dump_s": 0.12378737702965736,
+   "load_s": 0.06080625578761101,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "pickle (C)",
+   "size_mb": 104.857739,
+   "dump_s": 0.05925097316503525,
+   "load_s": 0.06060306541621685,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "cloudpickle",
+   "size_mb": 104.857739,
+   "dump_s": 0.05990756116807461,
+   "load_s": 0.0605928897857666,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 104.857739,
+   "dump_s": 0.05916211195290089,
+   "load_s": 0.060547273606061935,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 104.857739,
+   "dump_s": 0.12269996665418148,
+   "load_s": 0.06060606613755226,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 104.857739,
+   "dump_s": 0.12236447632312775,
+   "load_s": 0.060539113357663155,
+   "error": null
+  },
+  {
+   "workload": "ndarray 100MB",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 104.857739,
+   "dump_s": 0.05992455035448074,
+   "load_s": 0.06058480031788349,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "dill (current)",
+   "size_mb": 104.858435,
+   "dump_s": 0.1242771428078413,
+   "load_s": 0.06114334426820278,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "dill (byref=True)",
+   "size_mb": 104.858435,
+   "dump_s": 0.12354909628629684,
+   "load_s": 0.061025096103549004,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "pickle (C)",
+   "size_mb": 104.858418,
+   "dump_s": 0.05898028239607811,
+   "load_s": 0.06077364832162857,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "cloudpickle",
+   "size_mb": 104.858418,
+   "dump_s": 0.05955401994287968,
+   "load_s": 0.060688089579343796,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 104.858418,
+   "dump_s": 0.05888131074607372,
+   "load_s": 0.06080790050327778,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 104.858418,
+   "dump_s": 0.12229776568710804,
+   "load_s": 0.06070390157401562,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 104.858418,
+   "dump_s": 0.12248413451015949,
+   "load_s": 0.06089037470519543,
+   "error": null
+  },
+  {
+   "workload": "DataFrame numeric 100MB",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 104.858418,
+   "dump_s": 0.05957500450313091,
+   "load_s": 0.060706689953804016,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "dill (current)",
+   "size_mb": 10.891761,
+   "dump_s": 0.8070695698261261,
+   "load_s": 0.03572007082402706,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "dill (byref=True)",
+   "size_mb": 10.891761,
+   "dump_s": 0.8018902037292719,
+   "load_s": 0.03252751752734184,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "pickle (C)",
+   "size_mb": 10.891739,
+   "dump_s": 0.05843587964773178,
+   "load_s": 0.03075571358203888,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "cloudpickle",
+   "size_mb": 10.891739,
+   "dump_s": 0.062009502202272415,
+   "load_s": 0.029380079358816147,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 10.891739,
+   "dump_s": 0.05780222453176975,
+   "load_s": 0.027852484956383705,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 10.891739,
+   "dump_s": 0.06599695235490799,
+   "load_s": 0.026755772531032562,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 10.891739,
+   "dump_s": 0.06541690044105053,
+   "load_s": 0.025210009887814522,
+   "error": null
+  },
+  {
+   "workload": "DataFrame strings 500k rows",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 10.891739,
+   "dump_s": 0.06195054017007351,
+   "load_s": 0.024076400324702263,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "dill (current)",
+   "size_mb": 13.128658,
+   "dump_s": 4.562609249725938,
+   "load_s": 0.5020309090614319,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "dill (byref=True)",
+   "size_mb": 13.128658,
+   "dump_s": 4.473242035135627,
+   "load_s": 0.5078751146793365,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "pickle (C)",
+   "size_mb": 13.128658,
+   "dump_s": 0.1754259653389454,
+   "load_s": 0.44998743012547493,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "cloudpickle",
+   "size_mb": 13.128658,
+   "dump_s": 0.17799877747893333,
+   "load_s": 0.4601928535848856,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 13.128658,
+   "dump_s": 0.17533893138170242,
+   "load_s": 0.41104925237596035,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 13.128658,
+   "dump_s": 0.18389602564275265,
+   "load_s": 0.48979200050234795,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 13.128658,
+   "dump_s": 0.1835656836628914,
+   "load_s": 0.40118319168686867,
+   "error": null
+  },
+  {
+   "workload": "list of dict (300k)",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 13.128658,
+   "dump_s": 0.1820048652589321,
+   "load_s": 0.41643163934350014,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "dill (current)",
+   "size_mb": 5.489851,
+   "dump_s": 2.1824241038411856,
+   "load_s": 0.09533665142953396,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "dill (byref=True)",
+   "size_mb": 5.489851,
+   "dump_s": 2.211044952273369,
+   "load_s": 0.08761902712285519,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "pickle (C)",
+   "size_mb": 5.489853,
+   "dump_s": 0.03933957777917385,
+   "load_s": 0.0939903873950243,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "cloudpickle",
+   "size_mb": 5.489853,
+   "dump_s": 0.04154471680521965,
+   "load_s": 0.09111254662275314,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 5.489853,
+   "dump_s": 0.039360536262393,
+   "load_s": 0.08729115128517151,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 5.489853,
+   "dump_s": 0.04260542616248131,
+   "load_s": 0.08546844869852066,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 5.489853,
+   "dump_s": 0.04248007759451866,
+   "load_s": 0.09739984385669231,
+   "error": null
+  },
+  {
+   "workload": "dict of lists (100k)",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 5.489853,
+   "dump_s": 0.04114857688546181,
+   "load_s": 0.09498247690498829,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "dill (current)",
+   "size_mb": 13.996851,
+   "dump_s": 6.214310277253389,
+   "load_s": 0.418802035972476,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "dill (byref=True)",
+   "size_mb": 13.091322,
+   "dump_s": 6.405122688040137,
+   "load_s": 0.3035072535276413,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "pickle (C)",
+   "size_mb": 13.091322,
+   "dump_s": 0.2975296527147293,
+   "load_s": 0.46065988950431347,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "cloudpickle",
+   "size_mb": 13.094605,
+   "dump_s": 0.5667095389217138,
+   "load_s": 0.38843038119375706,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 13.091322,
+   "dump_s": 0.30237382277846336,
+   "load_s": 0.4135181922465563,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 13.094653,
+   "dump_s": 6.572819406166673,
+   "load_s": 0.2875440213829279,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 13.094605,
+   "dump_s": 0.8749576099216938,
+   "load_s": 0.4310920275747776,
+   "error": null
+  },
+  {
+   "workload": "user-class instances (300k)",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 13.094605,
+   "dump_s": 0.5741520039737225,
+   "load_s": 0.4269562140107155,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "dill (current)",
+   "size_mb": 1.120227,
+   "dump_s": 0.7241720482707024,
+   "load_s": 0.06265797093510628,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "dill (byref=True)",
+   "size_mb": 1.120227,
+   "dump_s": 0.7198996711522341,
+   "load_s": 0.06243225373327732,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "pickle (C)",
+   "size_mb": 0.0,
+   "dump_s": null,
+   "load_s": null,
+   "error": "AttributeError: Can't pickle local object 'lambdas.<locals>.<listcomp>.<lambda>'"
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "cloudpickle",
+   "size_mb": 2.360533,
+   "dump_s": 0.15685910545289516,
+   "load_s": 0.08881457708775997,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "pickle, fallback on error",
+   "size_mb": 1.120227,
+   "dump_s": 0.7221565209329128,
+   "load_s": 0.04707569442689419,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "pickle + __main__ scan -> dill",
+   "size_mb": 1.120227,
+   "dump_s": 0.7297197356820107,
+   "load_s": 0.047000618651509285,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "pickle + __main__ scan -> cloudpickle",
+   "size_mb": 2.360533,
+   "dump_s": 0.15837940201163292,
+   "load_s": 0.0902268048375845,
+   "error": null
+  },
+  {
+   "workload": "lambdas (20k)",
+   "serializer": "cloudpickle, fallback to dill",
+   "size_mb": 2.360533,
+   "dump_s": 0.16009539365768433,
+   "load_s": 0.08983000181615353,
+   "error": null
+  }
+ ]
+}

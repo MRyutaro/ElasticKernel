@@ -6,6 +6,7 @@ from pathlib import Path
 
 import dill
 
+from elastic_notebook.core.io import serializer
 from elastic_notebook.core.io.adapter import Adapter
 
 
@@ -27,7 +28,8 @@ class FilesystemAdapter(Adapter):
         path.touch()
 
     def write_all(self, path: Path, buf):
-        dill.dump(buf, open(path, "wb"))
+        with open(path, "wb") as f:
+            serializer.dump(buf, f)
 
     def remove(self, path: Path):
         path.unlink()
